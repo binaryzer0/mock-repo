@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  GitRepo:
+    Default: https://github.com/aws-samples/vpn-gateway-strongwswan.git
+    Type: String
+
+Resources:
+  GitRepoToCodeCommitBucket:
+    Type: AWS::S3::Bucket
+
+  GitRepoToCodeCommitCustomResource:
+    Type: Custom::CopyGitRepoToCodeCommit
+    Properties:
+      ServiceToken: !GetAtt GitRepoToCodeCommitLambda.Arn
+
+  CodeCommitRepo:
+    DependsOn:
+      - GitRepoToCodeCommitCustomResource
+    Type: AWS::CodeCommit::Repository
+    Properties: 
+      Code: 
+        S3:
+          Bucket: !Ref GitRepoToCodeCommitBucket
+          Key: repo.zip
+      RepositoryDescription: somethingsomething description
+      RepositoryName: example-suricata-repo-change-name
+
+  GitRepoToCodeCommitLambda:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Description: Lambda to be triggered by Cloudformation Custom resource to copy GitHub repo to CodeCommit repo
+      Code: 
+        ZipFile: |
+          import boto3
+          import logging
+          import os
+          import shutil
+          import cfnresponse
+
+          s3 = boto3.client('s3')
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          repo = os.environ['GitRepo']
+          s3Bucket = os.environ['s3Bucket']
+
+          path = '/tmp/repo' 
+          s3ObjectName = 'repo'
+          s3ObjectExtension = 'zip'
+          s3ObjectFullName = s3ObjectName + '.' + s3ObjectExtension
+
+          def lambda_handler(event, context):
+              response_data = {}
+              try:
+                  logger.info('Create path and change working directory to: %s' % (path))
+                  os.mkdir(path)
+                  os.chdir(path)
+                  
+                  logger.info('Clone the repository: %s to: %s' % (repo, path))
+                  os.system('git clone ' + repo + ' cloned-repo')
+                  logger.info('Clone complete. Files in working directory:')
+                  logger.info(os.listdir(os.getcwd()))
+
+                  
+                  logger.info('Create Zip from repo')
+                  shutil.make_archive(s3ObjectName, s3ObjectExtension, os.getcwd(), 'cloned-repo')
+                  logger.info('Created zip from repo. Files in working directory:')
+                  logger.info(os.listdir(os.getcwd()))
+                  logger.info('Uploading %s to S3://%s/%s' % (s3ObjectFullName, s3Bucket, s3ObjectFullName))
+                  s3.upload_file(os.getcwd() + '/' + s3ObjectFullName, s3Bucket, s3ObjectFullName)
+                  logger.info('Upload Complete. Cleaning directory')
+                  shutil.rmtree(path)
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+              except Exception as e:
+                  logger.error('Execution failed...')
+                  logger.error(str(e))
+                  response_data['Data'] = str(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
+      Environment: 
+        Variables:
+          GitRepo: !Ref GitRepo
+          s3Bucket: !Ref GitRepoToCodeCommitBucket
+      Handler: index.lambda_handler
+      Runtime: python3.8
+      Layers: 
+        - !Sub arn:aws:lambda:${AWS::Region}:553035198032:layer:git-lambda2:8 # https://github.com/lambci/git-lambda-layer
+      MemorySize: 1024
+      Role: !GetAtt GitRepoToCodeCommitLambdaRole.Arn
+
+  GitRepoToCodeCommitLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub ${GitRepoToCodeCommitBucket.Arn}/*
+          PolicyName: PutS3Object
