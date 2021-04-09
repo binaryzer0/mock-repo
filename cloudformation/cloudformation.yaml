@@ -106,7 +106,7 @@ Parameters:
     Type: String
   SuricataInstanceType:
     Type: String
-    Default: c5n.large
+    Default: t3.large
   CrossZoneLoadBalancing:
     Type: String
     Default: true
