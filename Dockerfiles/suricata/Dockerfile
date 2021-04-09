@@ -1,22 +1,18 @@
-FROM alpine:3.13
+FROM public.ecr.aws/amazonlinux/amazonlinux:latest
 
-RUN apk add python3 py-pip suricata=6.0.1-r1 --no-cache && \
-    pip install suricata-update && \
-    ## Remove standard rules as default. Set env enable_suricata_update=true when launching container to re-add and automatically keep the rule list up to date.
-    rm -rf /var/lib/suricata/rules/suricata.rules /var/lib/suricata/update/ && \ 
-    addgroup suricata && \
-    adduser -S -u 100 -G suricata suricata && \
-    chown -R suricata:suricata /etc/suricata && \
-    chown -R suricata:suricata /var/log/suricata && \
-    chown -R suricata:suricata /var/lib/suricata && \
-    chown -R suricata:suricata /var/run/suricata
+# Install dependencies
+RUN yum update -y && \
+ yum install -y httpd
 
-#Copy config files to container, overwriting default configs.
-COPY --chown=suricata:suricata ./configs/etc/suricata/suricata.yaml /etc/suricata/
+# Install apache and write hello world message
+RUN echo 'Hello World!' > /var/www/html/index.html
 
-#Copy your own rules to container
-COPY --chown=suricata:suricata ./configs/var/lib/suricata/rules/my.rules /var/lib/suricata/rules/
+# Configure apache
+RUN echo 'mkdir -p /var/run/httpd' >> /root/run_apache.sh && \
+ echo 'mkdir -p /var/lock/httpd' >> /root/run_apache.sh && \
+ echo '/usr/sbin/httpd -D FOREGROUND' >> /root/run_apache.sh && \
+ chmod 755 /root/run_apache.sh
 
-COPY docker-entrypoint.sh /
-ENTRYPOINT ["/docker-entrypoint.sh"]
+EXPOSE 80
 
+CMD /root/run_apache.sh
