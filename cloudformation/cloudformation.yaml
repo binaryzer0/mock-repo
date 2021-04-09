@@ -104,6 +104,7 @@ Parameters:
       Enable other rulesets from the following index: https://www.openinfosecfoundation.org/rules/index.yaml in a comma delimted list. 
       Example: et/open, sslbl/ssl-fp-blacklist, et/pro secret-code=password, etnetera/aggressive
     Type: String
+    Default: ''
   SuricataInstanceType:
     Type: String
     Default: t3.large
