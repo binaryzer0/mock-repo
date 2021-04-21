@@ -1,0 +1,656 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Pipeline Automation Template
+
+Parameters:
+  GitRepo:
+    Default: https://github.com/bizzelicious/mock-repo.git
+    Type: String
+
+  VpcCidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.0/25
+    Description: CIDR block for the VPC
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/y
+  PublicSubnet1Cidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.0/28
+    Description: CIDR block for the Public Subnet 1 located in AZ 1
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+  PublicSubnet2Cidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.16/28
+    Description: CIDR block for the Public Subnet 2 located in AZ 2
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+  PublicSubnet3Cidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.32/28
+    Description: CIDR block for the Public Subnet 3 located in AZ 3
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+  PrivateSubnet1Cidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.48/28
+    Description: CIDR block for the Private Subnet 1 located in AZ 1
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+  PrivateSubnet2Cidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.64/28
+    Description: CIDR block for the Private Subnet 2 located in AZ 2
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+  PrivateSubnet3Cidr:
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    Default: 192.168.1.80/28
+    Description: CIDR block for the Private Subnet 3 located in AZ 3
+    Type: String
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+
+Mappings: 
+  Automation:
+    CloudWatchEvents:
+      RolePolicyName: ipsautomation-cwe-pipeline-execution
+    CloudFormation:
+      RolePolicyName: ipsautomation-cfn-pipeline-execution
+      ChangeSetName: ipsautomation-cfn-cset
+      StackName: ipsautomation-cfn-stack
+    CodeBuild:
+      ProjectName: ipsautomation-cb
+      RolePolicyName: ipsautomation-cb-pipeline-execution
+    Pipeline:
+      Name: ipsautomation-pipeline
+      SourceTemplate: deployment/cloudformation.yaml
+      ArtefactBucketName: pipelineartefact-bucket
+      SourceCodeBucket: sourcecode-bucket
+      SourceRepoName: ipsautomation-pipeline-repo
+      RolePolicyName: ipsautomation-cpp-pipeline-execution
+    Ecr:
+      RepoName: ipsautomation-suricata
+      Tag: Latest
+
+Resources:
+
+  ECRRepo:
+    Type: AWS::ECR::Repository
+    Properties: 
+      ImageTagMutability: MUTABLE
+      RepositoryName: !FindInMap [ Automation, Ecr, RepoName ]
+
+  SourceCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Join ["", ["s3-",!Ref "AWS::AccountId","-",!FindInMap [ Automation, Pipeline, SourceCodeBucket ]]]
+  
+  CPipelineBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Join ["", ["s3-",!Ref "AWS::AccountId","-",!FindInMap [ Automation, Pipeline, ArtefactBucketName ]]]
+
+  GitRepoToCodeCommitCustomResource:
+    Type: Custom::CopyGitRepoToS3
+    Properties:
+      ServiceToken: !GetAtt GitRepoToCodeCommitLambda.Arn
+
+  GitRepoToCodeCommitLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub ${SourceCodeBucket.Arn}/*
+          PolicyName: PutS3Object
+
+  GitRepoToCodeCommitLambda:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Description: Lambda to be triggered by Cloudformation Custom resource to copy GitHub repo to CodeCommit repo
+      Code: 
+        ZipFile: |
+          import boto3
+          import logging
+          import os
+          import shutil
+          import cfnresponse
+          s3 = boto3.client('s3')
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          repo = os.environ['GitRepo']
+          s3Bucket = os.environ['s3Bucket']
+          path = '/tmp/repo' 
+          s3ObjectName = 'ipsautomation'
+          s3ObjectExtension = 'zip'
+          s3ObjectFullName = s3ObjectName + '.' + s3ObjectExtension
+          def lambda_handler(event, context):
+              response_data = {}
+              try:
+                  logger.info('Create path and change working directory to: %s' % (path))
+                  os.mkdir(path)
+                  os.chdir(path)
+                  logger.info('Clone the repository: %s to: %s' % (repo, path))
+                  os.system('git clone ' + repo + ' cloned-repo')
+                  shutil.rmtree('cloned-repo/.git')
+                  logger.info('Clone complete. Files in working directory:')
+                  logger.info(os.listdir(os.getcwd()))
+                  logger.info('Create Zip from repo')
+                  shutil.make_archive(s3ObjectName, s3ObjectExtension,'cloned-repo','.')
+                  logger.info('Created zip from repo. Files in working directory:')
+                  logger.info(os.listdir(os.getcwd()))
+                  logger.info('Uploading %s to S3://%s/%s' % (s3ObjectFullName, s3Bucket, s3ObjectFullName))
+                  s3.upload_file(os.getcwd() + '/' + s3ObjectFullName, s3Bucket, s3ObjectFullName)
+                  logger.info('Upload Complete. Cleaning directory')
+                  shutil.rmtree(path)
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+              except Exception as e:
+                  logger.error('Execution failed...')
+                  logger.error(str(e))
+                  response_data['Data'] = str(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
+      Environment: 
+        Variables:
+          GitRepo: !Ref GitRepo
+          s3Bucket: !Ref SourceCodeBucket
+      Handler: index.lambda_handler
+      Runtime: python3.8
+      Layers: 
+        - !Sub arn:aws:lambda:${AWS::Region}:553035198032:layer:git-lambda2:8 # https://github.com/lambci/git-lambda-layer
+      MemorySize: 1024
+      Role: !GetAtt GitRepoToCodeCommitLambdaRole.Arn
+
+  CCRepo:
+    DependsOn:
+      - GitRepoToCodeCommitCustomResource
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      Code: 
+        S3:
+          Bucket: !Ref SourceCodeBucket
+          Key: ipsautomation.zip
+      RepositoryDescription: Repository for holding IPS solution Automation Code
+      RepositoryName: !FindInMap [ Automation, Pipeline, SourceRepoName ]
+
+  CPipelineCloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !FindInMap [ Automation, CloudFormation, RolePolicyName ]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: 
+                  - 'ec2:Describe*'
+                  - 'ec2:CreateVPC'
+                  - 'ec2:DeleteVpc'
+                  - 'ec2:CreateInternetGateway'
+                  - 'ec2:DeleteInternetGateway'
+                  - 'ec2:AttachInternetGateway'
+                  - 'ec2:DetachInternetGateway'
+                  - 'ec2:CreateSubnet'
+                  - 'ec2:ModifySubnetAttribute'
+                  - 'ec2:DeleteSubnet'
+                  - 'ec2:CreateRoute'
+                  - 'ec2:DeleteRoute'
+                  - 'ec2:CreateRouteTable'
+                  - 'ec2:DeleteRouteTable'
+                  - 'ec2:AssociateRouteTable'
+                  - 'ec2:DisassociateRouteTable'
+                  - 'ec2:CreateSecurityGroup'
+                  - 'ec2:DeleteSecurityGroup'
+                  - 'ec2:CreateVpcEndpointServiceConfiguration'
+                  - 'ec2:ModifyVpcEndpointServicePermissions'
+                  - 'ec2:DeleteVpcEndpointServiceConfigurations'
+                  - 'ec2:ModifyVpcAttribute'
+                  - 'ec2:CreateTags'
+                  - 'ec2:DeleteTags'
+                  - 'ec2:AuthorizeSecurityGroupEgress'
+                  - 'ec2:AuthorizeSecurityGroupIngress'                  
+                  - 'ec2:RevokeSecurityGroupEgress'
+                  - 'ec2:RevokeSecurityGroupIngress'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action: 
+                  - 'logs:Describe*'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:DeleteLogGroup'
+                  - 'logs:PutRetentionPolicy'
+                  - 'logs:DeleteRetentionPolicy'
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 's3:Describe*'
+                  - 's3:CreateBucket'
+                  - 's3:DeleteBucket'
+                  - 's3:PutEncryptionConfiguration'
+                  - 's3:PutLifecycleConfiguration'
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'ecs:Describe*'
+                  - 'ecs:CreateCluster'
+                  - 'ecs:DeleteCluster'
+                  - 'ecs:CreateService'
+                  - 'ecs:UpdateService'
+                  - 'ecs:DeleteService'
+                  - 'ecs:CreateCapacityProvider'
+                  - 'ecs:DeleteCapacityProvider'
+                  - 'ecs:PutClusterCapacityProviders'
+                  - 'ecs:CreateTaskSet'
+                  - 'ecs:DeleteTaskSet'
+                  - 'ecs:RegisterTaskDefinition'
+                  - 'ecs:DeregisterTaskDefinition'
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'ecr:Describe*'
+                  - 'ecr:CreateRepository'
+                  - 'ecr:DeleteRepository'
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'elasticloadbalancing:Describe*'
+                  - 'elasticloadbalancing:DeleteLoadBalancer'
+                  - 'elasticloadbalancing:CreateListener'
+                  - 'elasticloadbalancing:CreateLoadBalancer'
+                  - 'elasticloadbalancing:CreateTargetGroup'
+                  - 'elasticloadbalancing:DeleteTargetGroup'
+                  - 'elasticloadbalancing:ModifyTargetGroupAttributes'
+                  - 'elasticloadbalancing:ModifyLoadBalancerAttributes'
+                  - 'elasticloadbalancing:DeleteListener'
+                  - 'elasticloadbalancing:AddTags'
+                  - 'elasticloadbalancing:RemoveTags'                  
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'autoscaling:Describe*'
+                  - 'autoscaling:CreateAutoScalingGroup'
+                  - 'autoscaling:DeleteAutoScalingGroup'
+                  - 'autoscaling:CreateLaunchConfiguration'
+                  - 'autoscaling:DeleteLaunchConfiguration'
+                  - 'autoscaling:UpdateAutoScalingGroup'
+                  - 'autoscaling:CreateOrUpdateTags'
+                  - 'autoscaling:DeleteTags'
+
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'lambda:Describe*'
+                  - 'lambda:CreateFunction'
+                  - 'lambda:DeleteFunction'
+                  - 'lambda:GetFunctionConfiguration'
+                  - 'lambda:InvokeFunction'
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'iam:Describe*'
+                  - 'iam:GetRole'
+                  - 'iam:CreateServiceLinkedRole'
+                  - 'iam:DeleteServiceLinkedRole'
+                  - 'iam:CreateRole'
+                  - 'iam:DeleteRole'
+                  - 'iam:CreatePolicy'
+                  - 'iam:DeletePolicy'
+                  - 'iam:PutRolePolicy'
+                  - 'iam:AttachRolePolicy'
+                  - 'iam:DetachRolePolicy'
+                  - 'iam:DeleteRolePolicy'
+                  - 'iam:CreateInstanceProfile'
+                  - 'iam:AddRoleToInstanceProfile'
+                  - 'iam:RemoveRoleFromInstanceProfile'
+                  - 'iam:DeleteInstanceProfile'
+                  - 'iam:PassRole'
+                Resource: '*'
+              - 
+                Effect: Allow
+                Action: 
+                  - 'ssm:GetParameters'
+                Resource: '*'
+
+  CPipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - 
+            Effect: Allow
+            Principal: 
+                Service: 
+                  - codepipeline.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - 
+          PolicyName: !FindInMap [ Automation, Pipeline, RolePolicyName ]
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+                - 
+                  Effect: Allow
+                  Action:
+                    - codecommit:CancelUploadArchive
+                    - codecommit:GetBranch
+                    - codecommit:GetCommit
+                    - codecommit:GetUploadArchiveStatus
+                    - codecommit:UploadArchive
+                  Resource: !GetAtt CCRepo.Arn
+                - 
+                  Effect: Allow
+                  Action:
+                    - codebuild:StartBuild
+                    - codebuild:BatchGetBuilds
+                  Resource: !GetAtt CBuildProject.Arn
+                -
+                  Effect: Allow
+                  Action:
+                    - cloudformation:CreateStack
+                    - cloudformation:DeleteStack
+                    - cloudformation:DescribeStacks
+                    - cloudformation:UpdateStack
+                    - cloudformation:CreateChangeSet
+                    - cloudformation:DeleteChangeSet
+                    - cloudformation:DescribeChangeSet
+                    - cloudformation:ExecuteChangeSet
+                    - cloudformation:SetStackPolicy
+                    - cloudformation:ValidateTemplate
+                  Resource: "*"
+                - 
+                  Effect: Allow
+                  Action:
+                    - iam:PassRole
+                  Resource:
+                    - !GetAtt CPipelineCloudFormationRole.Arn
+                - 
+                  Effect: Allow
+                  Action:
+                    - s3:*
+                  Resource: 
+                    - !GetAtt CPipelineBucket.Arn
+                    - !Join ["", [!GetAtt CPipelineBucket.Arn,"/*"]]
+
+  CPipelineCodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !FindInMap [ Automation, CodeBuild, RolePolicyName ]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - ecr:PutImage
+                  - ecr:PutImageTagMutability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt CPipelineBucket.Arn
+                  - !Join ["", [!GetAtt CPipelineBucket.Arn,"/*"]]
+
+  CBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties: 
+      Artifacts: 
+        Type: CODEPIPELINE
+      Environment: 
+        Type: LINUX_CONTAINER
+        Image: aws/codebuild/standard:4.0
+        ComputeType: BUILD_GENERAL1_SMALL
+        PrivilegedMode: true
+        ImagePullCredentialsType: CODEBUILD
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: !Ref AWS::AccountId
+          - Name: IMAGE_TAG
+            Type: PLAINTEXT
+            Value: !FindInMap [ Automation, Ecr, Tag ]
+          - Name: IMAGE_REPO_NAME
+            Type: PLAINTEXT
+            Value: !FindInMap [ Automation, Ecr, RepoName ]
+      LogsConfig: 
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: codebuild
+          StreamName: !FindInMap [ Automation, CodeBuild, ProjectName ]
+      Name: !FindInMap [ Automation, CodeBuild, ProjectName ]
+      ServiceRole: !GetAtt CPipelineCodeBuildRole.Arn
+      Source: 
+        Type: CODEPIPELINE
+        BuildSpec: Dockerfiles/suricata/buildspec.yml
+
+  CPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties: 
+      ArtifactStore: 
+        Type: S3 
+        Location: !Join ["", ["s3-",!Ref "AWS::AccountId","-",!FindInMap [ Automation, Pipeline, ArtefactBucketName ]]] 
+      DisableInboundStageTransitions:
+        -  
+          Reason: "Disabling to permit code changes to internal stack before initial deployment"
+          StageName: BuildStage
+      Name: !FindInMap [ Automation, Pipeline, Name ]
+      RoleArn: !GetAtt CPipelineServiceRole.Arn
+      Stages:
+      - Name: SourceStage
+        Actions:
+          - Name: Source
+            ActionTypeId:
+              Category: Source
+              Owner: AWS
+              Provider: CodeCommit
+              Version: '1'
+            Configuration:
+              RepositoryName: !FindInMap [ Automation, Pipeline, SourceRepoName ]
+              BranchName: main
+              PollForSourceChanges: 'false'
+            OutputArtifacts:
+              - Name: SourceArtifact
+            RunOrder: '1'
+      - Name: BuildStage
+        Actions:
+          - Name: Build
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: '1'
+            Configuration:
+              ProjectName: !FindInMap [ Automation, CodeBuild, ProjectName ]
+            InputArtifacts:
+              - Name: SourceArtifact
+            RunOrder: '2'
+      - Name: CreateVpc
+        Actions:
+          - Name: CreateChangeSet
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceArtifact
+            Configuration:
+              ActionMode: CHANGE_SET_REPLACE
+              Capabilities: CAPABILITY_IAM
+              RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
+              StackName: suricata-vpc
+              ChangeSetName: vpc-changesetname
+              TemplatePath: "SourceArtifact::deployment/vpc.yaml"
+              # ParameterOverrides: !Sub |
+              #   {
+              #     "VpcCidr": ${VpcCidr},
+              #     "PublicSubnet1Cidr": "${PublicSubnet1Cidr}",
+              #     "PublicSubnet2Cidr": "${PublicSubnet2Cidr}",
+              #     "PublicSubnet3Cidr": "${PublicSubnet3Cidr}",
+              #     "PrivateSubnet1Cidr": "${PrivateSubnet1Cidr}",
+              #     "PrivateSubnet2Cidr": "${PrivateSubnet2Cidr}",
+              #     "PrivateSubnet3Cidr": "${PrivateSubnet3Cidr}"
+              # }
+              ParameterOverrides:
+              - VpcCidr: !Ref VpcCidr
+              - PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
+              - PublicSubnet1Cidr: !Ref PublicSubnet2Cidr
+              - PublicSubnet1Cidr: !Ref PublicSubnet3Cidr
+              - PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
+              - PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
+              - PrivateSubnet3Cidr: !Ref PrivateSubnet3Cidr
+            RunOrder: '2'
+          - Name: ExecuteChangeSet
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            Configuration:
+              ActionMode: CHANGE_SET_EXECUTE
+              ChangeSetName: changesetname
+              RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
+              StackName: suricata-vpc
+            RunOrder: '2'  
+      - Name: DeployStage
+        Actions:
+          - Name: CreateChangeSet
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceArtifact
+            Configuration:
+              ActionMode: CHANGE_SET_REPLACE
+              Capabilities: CAPABILITY_IAM
+              RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
+              StackName: !FindInMap [ Automation, CloudFormation, StackName ]
+              ChangeSetName: !FindInMap [ Automation, CloudFormation, ChangeSetName ]
+              TemplatePath: !Join ["", ["SourceArtifact::", !FindInMap [ Automation, Pipeline, SourceTemplate ]]]
+              ParameterOverrides: !Join ["",["{\"SuricataImage\":","\"",!Ref AWS::AccountId,".dkr.ecr.",!Ref AWS::Region,".amazonaws.com/",!FindInMap [Automation, Ecr, RepoName],":",!FindInMap [Automation, Ecr, Tag],"\"}"]]
+            RunOrder: '3'
+          - Name: ExecuteChangeSet
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            Configuration:
+              ActionMode: CHANGE_SET_EXECUTE
+              ChangeSetName: !FindInMap [ Automation, CloudFormation, ChangeSetName ]
+              RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
+              StackName: !FindInMap [ Automation, CloudFormation, StackName ]
+            RunOrder: '4'
+
+  CPipelineCloudWatchEventRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - events.amazonaws.com
+              Action: sts:AssumeRole
+        Path: /
+        Policies:
+          -
+            PolicyName: !FindInMap [ Automation, CloudWatchEvents, RolePolicyName ]
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                -
+                  Effect: Allow
+                  Action: codepipeline:StartPipelineExecution
+                  Resource: !Join [ "", [ "arn:aws:codepipeline:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":", !Ref "CPipeline" ] ] 
+
+  CPipelineCloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - !Join [ "", [ "arn:aws:codecommit:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":", !FindInMap [ Automation, Pipeline, SourceRepoName ] ] ]
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - main
+      Targets:
+        -
+          Arn: 
+            !Join [ "", [ "arn:aws:codepipeline:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":", !Ref "CPipeline" ] ]
+          RoleArn: !GetAtt CPipelineCloudWatchEventRole.Arn
+          Id: codepipeline-AppPipeline
