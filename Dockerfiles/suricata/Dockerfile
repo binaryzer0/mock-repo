@@ -9,8 +9,7 @@ RUN amazon-linux-extras install -y epel && \
   rm -rf /var/cache/yum
 
 WORKDIR /tmp
-RUN  curl -s -L https://github.com/mikefarah/yq/releases/download/v4.7.0/yq_linux_amd64 -o /usr/bin/yq && chmod +x /usr/bin/yq && \
-  curl -s https://www.openinfosecfoundation.org/download/suricata-6.0.0.tar.gz -o suricata-6.0.0.tar.gz && \
+RUN curl -s https://www.openinfosecfoundation.org/download/suricata-6.0.0.tar.gz -o suricata-6.0.0.tar.gz && \
   tar -zxvf suricata-6.0.0.tar.gz && \
   cd suricata-6.0.0 && \
   ./configure --disable-gccmarch-native --prefix=/ --sysconfdir=/etc/ --localstatedir=/var/ --enable-lua --enable-geoip --enable-nfqueue && \

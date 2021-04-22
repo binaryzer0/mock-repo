@@ -72,14 +72,14 @@ stats:
 outputs:
   # a line based alerts log similar to Snort's fast.log
   - fast:
-      enabled: no # Can be overrided by command line option, see docker entrypoint
+      enabled: yes 
       filename: fast.log
       append: yes
       #filetype: regular # 'regular', 'unix_stream' or 'unix_dgram'
 
   # Extensible Event Format (nicknamed EVE) event log in JSON format
   - eve-log:
-      enabled: no # Can be overrided by command line option, see docker entrypoint
+      enabled: yes 
       filetype: regular #regular|syslog|unix_dgram|unix_stream|redis
       filename: eve.json
       # Enable for multi-threaded eve.json output; output files are amended with
@@ -356,7 +356,7 @@ outputs:
   # - encrypted streams after the key exchange
   #
   - pcap-log:
-      enabled: no # Can be overrided by command line option, see docker entrypoint
+      enabled: yes 
       filename: log.pcap
 
       # File size limit.  Can be specified in kb, mb, gb.  Just a number

@@ -2,7 +2,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Parameters:
-  Vpc:
+  VpcId:
+    Description: The VPC id
+    Type: String
+  VpcCidr:
     Description: The VPC id
     Type: String
   PrivateSubnet1:
@@ -18,56 +21,27 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id"
 
-  PcapLogEnable:
-    Description: "Enable PCAP logging. Will save all packets that are registered by Suricata to S3 in .pcap format. https://suricata.readthedocs.io/en/latest/configuration/suricata-yaml.html#packet-log-pcap-log"
-    Type: String
-    AllowedValues:
-      - true
-      - false
-    Default: false
   PcapLogRententionS3:
     Description: "How many days Pcap log should be saved in S3"
     Default: 30
     Type: Number
 
-  FastLogEnable:
-    Description: "Enable Fast log, This log contains alerts consisting of a single line and will be put to CloudWatch Logs. The log does not contain as much information as the EVE Json log. https://suricata.readthedocs.io/en/latest/configuration/suricata-yaml.html#line-based-alerts-log-fast-log"
-    Type: String
-    AllowedValues:
-      - true
-      - false
-    Default: false
   FastLogRententionCloudWatch:
     Description: "How many days Fast log should be saved in Cloudwatch"
     Default: 3
     Type: Number
     AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
 
-  EveLogEnable:
-    Description: "Enables EVE JSON log. Each alert, http log, etc will be logged in Json format and put to CloudWatch Logs. You can use this log to build dashboards, alerts and other types of monitoring. https://suricata.readthedocs.io/en/suricata-6.0.0/output/eve/eve-json-output.html"
-    Type: String
-    AllowedValues:
-      - true
-      - false
-    Default: true
   EveLogRententionCloudWatch:
     Description: "How many days EVE log should be saved in Cloudwatch"
     Default: 30
     Type: Number
     AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
 
-  SuricataTestMode:
-    Description: "Enable test mode. This will create the following rule which will log all traffic: alert ip any any -> any any (msg:\"traffic logged\";sid:999;rev:1;)"
-    Type: String
-    AllowedValues:
-      - true
-      - false
-    Default: false
-
   SuricataImage:
     Description: Container image
     Type: String
-    Default: "bizzelicious/suricata:6.0.1-1"
+    Default: ""
 
   SuricataUpdate:
     Description: "Enable Suricata update to update and manage rules. Enables the Emerging Threats Open Ruleset"
@@ -81,6 +55,7 @@ Parameters:
       If parameter "SuricataUpdate" is true. Enable other rulesets from the following index: https://www.openinfosecfoundation.org/rules/index.yaml in a comma delimted list. 
       Example: et/open, sslbl/ssl-fp-blacklist, et/pro secret-code=password, etnetera/aggressive
     Type: String
+    Default: ""
     
   SuricataInstanceType:
     Type: String
@@ -194,14 +169,6 @@ Resources:
               awslogs-stream-prefix: "stdout"
               awslogs-create-group: "true"
           Environment:
-            - Name: enable_pcap_log
-              Value: !Ref PcapLogEnable
-            - Name: enable_fast_log
-              Value: !Ref FastLogEnable
-            - Name: enable_eve_log
-              Value: !Ref EveLogEnable
-            - Name: enable_test_mode
-              Value: !Ref SuricataTestMode
             - Name: enable_suricata_update
               Value: !Ref SuricataUpdate
             - Name: rule_sources
@@ -225,6 +192,27 @@ Resources:
 ##
 ## Compute
 ##
+
+  SuricataSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VpcId
+      GroupDescription: >-
+        Suricata Security group
+      SecurityGroupIngress:
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1          
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+      Tags:
+        - Key: Name
+          Value: "Suricata SG"
+
   Gwlb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -248,7 +236,7 @@ Resources:
       TargetGroupAttributes:
       - Key: deregistration_delay.timeout_seconds
         Value: "20"
-      VpcId: !Ref Vpc
+      VpcId: !Ref VpcId
       HealthCheckPort: "80"
       HealthCheckProtocol: HTTP
       TargetType: instance
@@ -289,6 +277,7 @@ Resources:
             Principal:
               Service:
                 - ec2.amazonaws.com
+                - ecs-tasks.amazonaws.com
             Action:
               - 'sts:AssumeRole'
       Path: /
@@ -344,7 +333,7 @@ Resources:
           iptables -I FORWARD -j NFQUEUE
 
           # Configure nat table to hairpin traffic back to GWLB. Supports cross zone LB.
-          for i in $(aws --region ${AWS::Region} ec2 describe-network-interfaces --filters Name=vpc-id,Values=${Vpc} --query 'NetworkInterfaces[?InterfaceType==`gateway_load_balancer`].PrivateIpAddress' --output text); do 
+          for i in $(aws --region ${AWS::Region} ec2 describe-network-interfaces --filters Name=vpc-id,Values=${VpcId} --query 'NetworkInterfaces[?InterfaceType==`gateway_load_balancer`].PrivateIpAddress' --output text); do 
             iptables -t nat -A PREROUTING -p udp -s $i -d $instance_ip -i eth0 -j DNAT --to-destination $i:6081
             iptables -t nat -A POSTROUTING -p udp --dport 6081 -s $i -d $i -o eth0 -j MASQUERADE
           done
@@ -353,7 +342,7 @@ Resources:
           service iptables save;
           
           mkdir /var/log/suricata/ 
-          chown 100 /var/log/suricata/ #Make the suricata user the owner of the log folder.
+          chown 1000 /var/log/suricata/ #Make the suricata user the owner of the log folder.
 
           cat > /etc/logrotate.d/suricata << 'EOF'
           /var/log/suricata/*.log /var/log/suricata/eve.json {
@@ -449,8 +438,6 @@ Resources:
           echo ECS_CLUSTER="${SuricataEcsCluster}" >> /etc/ecs/ecs.config;echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config;
 
   SuricataAutoScalingGroup:
-    DependsOn:
-      - "AttachInternetGateway"
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       DesiredCapacity: "0"

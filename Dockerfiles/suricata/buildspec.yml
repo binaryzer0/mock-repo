@@ -1,18 +1,46 @@
 version: 0.2
 
+env:
+  shell: bash
+  parameter-store:
+    md5sum: /ipsautomation/codebuild/container/suricata/md5sum
+  exported-variables: image
+
 phases:
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - execution_md5sum=$(find Dockerfiles/suricata/ -type f -exec md5sum {} + | awk '{print $1}' | LC_ALL=C sort | md5sum | awk '{print $1}')
+      - |
+        if [[ "$md5sum" != "$execution_md5sum" ]] ; then 
+          echo "Changes for the Suricata container found, the build continues."
+          build=true
+          COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+          IMAGE_TAG=${COMMIT_HASH:=latest}
+          aws ssm put-parameter --name "/ipsautomation/codebuild/container/suricata/md5sum" --value $execution_md5sum --overwrite
+          aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+          cd Dockerfiles/suricata
+        else
+          build=false
+          echo "No changes for the Suricata container, exiting pre_build phase" 
+        fi
   build:
-    commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...          
-      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
-      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG      
+    commands: 
+      - echo "$build"
+      - |
+        if [[ "$build" == "true" ]]; then
+          docker build -t $IMAGE_REPO_NAME:latest .
+          docker tag $IMAGE_REPO_NAME:latest $IMAGE_REPO_NAME:$IMAGE_TAG
+        else
+          echo "No changes for the Suricata container, exiting build phase"   
+        fi 
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - echo "$build"
+      - |
+        if [[ "$build" == "true" ]]; then
+          docker push $IMAGE_REPO_NAME:latest
+          docker push $IMAGE_REPO_NAME:$IMAGE_TAG
+          image="$IMAGE_REPO_NAME:$IMAGE_TAG"
+        else
+          echo "No changes for the Suricata container, exiting post_build phase"   
+        fi
