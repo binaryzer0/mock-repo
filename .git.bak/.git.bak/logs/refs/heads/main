@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 d805b2f3c63375ab806c9557fc8badc71a8bc70e Jesper Eneberg <jesper@eneberg.nu> 1617873938 +0200	clone: from https://github.com/bizzelicious/mock-repo.git
+d805b2f3c63375ab806c9557fc8badc71a8bc70e 3f020b5c7a4c8d4ba34a8c56bfc910a0c95350ca Jesper Eneberg <jesper@eneberg.nu> 1617874322 +0200	commit: initial commit
+3f020b5c7a4c8d4ba34a8c56bfc910a0c95350ca e41055044e6d72fcf454da53db7ffa2fc85efed6 Jesper Eneberg <jesper@eneberg.nu> 1619020038 +0200	pull: Fast-forward
+e41055044e6d72fcf454da53db7ffa2fc85efed6 3bbe907c8fbf1c54de7396e0263d2e1588aae088 Jesper Eneberg <jesper@eneberg.nu> 1619020185 +0200	commit: refactor

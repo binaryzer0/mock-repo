@@ -69,10 +69,7 @@ Mappings:
 Resources:
   SuricataEcrRepo:
     Type: AWS::ECR::Repository
-    Properties: 
-      ImageTagMutability: MUTABLE
-#      RepositoryName: !FindInMap [ Automation, Ecr, RepoName ]
-
+    
   SourceCodeBucket:
     Type: AWS::S3::Bucket
     Properties: 
@@ -549,8 +546,8 @@ Resources:
               RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
               StackName: !Sub ${AWS::StackName}-suricata-cluster
               ChangeSetName: !Sub ${AWS::StackName}-suricata-cluster-cset
-              TemplatePath: !Join ["", ["SourceArtifact::", !FindInMap [ Automation, Pipeline, SourceTemplate ]]]
-              #                  "SuricataImage": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/ipsautomation-suricata:Latest"
+              TemplatePath: SourceArtifact::deployment/suricata/cluster.yaml
+              TemplateConfiguration: SourceArtifact::deployment/suricata/cluster-template-configuration.json
               ParameterOverrides: !Sub |
                 {
                   "VpcId": "${VPC}",

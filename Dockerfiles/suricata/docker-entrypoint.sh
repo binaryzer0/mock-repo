@@ -1,6 +1,7 @@
 #!/bin/sh
 if [ "$enable_suricata_update" = true ]; then
     if [ -n "$rule_sources" ]; then
+        #rule_sources=$(aws ssm get-parameter --name example2 --region eu-north-1 --output text --query Parameter.Value 2> /dev/null)
         echo "enabling suricata-update rules with specified sources: $rule_sources"
         su - suricata -s /bin/sh -c "suricata-update update-sources"
         IFS=","; for I in $rule_sources; do su - suricata -s /bin/sh -c "suricata-update enable-source $I"; done
