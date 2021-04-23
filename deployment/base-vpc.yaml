@@ -434,7 +434,7 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParametersByPath
                   - ssm:PutParameter
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ipsautomation/codebuild/*
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/codebuild/*
               -
                 Effect: Allow
                 Action:
@@ -450,10 +450,9 @@ Resources:
   SuricataMd5sumParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /ipsautomation/codebuild/container/suricata/md5sum
+      Name: !Sub /${AWS::StackName}/codebuild/container/suricata/md5sum
       Type:  String
       Value: " "
-
 
   SuricataBuildProject:
     Type: AWS::CodeBuild::Project
@@ -467,15 +466,15 @@ Resources:
         PrivilegedMode: true
         ImagePullCredentialsType: CODEBUILD
         EnvironmentVariables:
-          - Name: AWS_DEFAULT_REGION
+          - Name: AWS_REGION
             Type: PLAINTEXT
             Value: !Ref AWS::Region
+          - Name: SSM_PARAMETER
+            Type: PLAINTEXT
+            Value: !Sub /${AWS::StackName}/codebuild/container/suricata/md5sum
           - Name: AWS_ACCOUNT_ID
             Type: PLAINTEXT
             Value: !Ref AWS::AccountId
-          - Name: IMAGE_TAG
-            Type: PLAINTEXT
-            Value: !FindInMap [ Automation, Ecr, Tag ]
           - Name: IMAGE_REPO_NAME
             Type: PLAINTEXT
             Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${SuricataEcrRepo}

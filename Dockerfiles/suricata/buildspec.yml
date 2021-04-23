@@ -2,22 +2,21 @@ version: 0.2
 
 env:
   shell: bash
-  parameter-store:
-    md5sum: /ipsautomation/codebuild/container/suricata/md5sum
   exported-variables: image
 
 phases:
   pre_build:
     commands:
-      - execution_md5sum=$(find Dockerfiles/suricata/ -type f -exec md5sum {} + | awk '{print $1}' | LC_ALL=C sort | md5sum | awk '{print $1}')
+      - deployed_md5sum=${aws ssm get-parameter --name $SSM_PARAMETER --region $REGION --output text --query Parameter.Value 2> /dev/null}
+      - commited_md5sum=$(find Dockerfiles/suricata/ -type f -exec md5sum {} + | awk '{print $1}' | LC_ALL=C sort | md5sum | awk '{print $1}')
       - |
-        if [[ "$md5sum" != "$execution_md5sum" ]] ; then 
+        if [[ "$deployed_md5sum" != "$commited_md5sum" ]] ; then 
           echo "Changes for the Suricata container found, the build continues."
           build=true
           COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
           IMAGE_TAG=${COMMIT_HASH:=latest}
-          aws ssm put-parameter --name "/ipsautomation/codebuild/container/suricata/md5sum" --value $execution_md5sum --overwrite
-          aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+          aws ssm put-parameter --name $SSM_PARAMETER --region $REGION --value $commited_md5sum --overwrite
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
           cd Dockerfiles/suricata
         else
           build=false
