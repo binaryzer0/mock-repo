@@ -17,12 +17,15 @@ RUN curl -s https://www.openinfosecfoundation.org/download/suricata-6.0.0.tar.gz
   mkdir -p /var/lib/suricata/update/ && \
   rm -rf /tmp/*
 
+COPY docker-entrypoint.sh /
+
 RUN  groupadd --gid 1000 suricata && \
   useradd --gid 1000 --uid 1000 --create-home suricata && \
   chown -R suricata:suricata /etc/suricata && \
   chown -R suricata:suricata /var/log/suricata && \
   chown -R suricata:suricata /var/lib/suricata && \
-  chown -R suricata:suricata /var/run/suricata
+  chown -R suricata:suricata /var/run/suricata && \
+  chmod +x /docker-entrypoint.sh
 
 #Copy config files to container, overwriting default configs.
 COPY --chown=suricata:suricata ./configs/etc/suricata/ /etc/suricata/
@@ -30,5 +33,4 @@ COPY --chown=suricata:suricata ./configs/etc/suricata/ /etc/suricata/
 #Copy your own rules to container
 COPY --chown=suricata:suricata ./configs/var/lib/suricata/rules/my.rules /var/lib/suricata/rules/
 
-COPY docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
