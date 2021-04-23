@@ -28,9 +28,9 @@ RUN  groupadd --gid 1000 suricata && \
   chmod +x /docker-entrypoint.sh
 
 #Copy config files to container, overwriting default configs.
-COPY --chown=suricata:suricata ./configs/etc/suricata/ /etc/suricata/
+COPY --chown=suricata:suricata ./etc/suricata/ /etc/suricata/
 
 #Copy your own rules to container
-COPY --chown=suricata:suricata ./configs/var/lib/suricata/rules/my.rules /var/lib/suricata/rules/
+COPY --chown=suricata:suricata ./var/lib/suricata/rules/my.rules /var/lib/suricata/rules/
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
