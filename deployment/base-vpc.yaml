@@ -454,6 +454,13 @@ Resources:
       Type:  String
       Value: " "
 
+  SuricataImageUriParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${AWS::StackName}/codebuild/container/suricata/uri
+      Type:  String
+      Value: " "
+
   SuricataBuildProject:
     Type: AWS::CodeBuild::Project
     Properties: 
@@ -469,9 +476,12 @@ Resources:
           - Name: AWS_REGION
             Type: PLAINTEXT
             Value: !Ref AWS::Region
-          - Name: SSM_PARAMETER
+          - Name: MD5SUM_SSM_PARAMETER
             Type: PLAINTEXT
             Value: !Sub /${AWS::StackName}/codebuild/container/suricata/md5sum
+          - Name: CONTAINERURI_SSM_PARAMETER
+            Type: PLAINTEXT
+            Value: !Sub /${AWS::StackName}/codebuild/container/suricata/uri
           - Name: AWS_ACCOUNT_ID
             Type: PLAINTEXT
             Value: !Ref AWS::AccountId

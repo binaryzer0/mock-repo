@@ -179,7 +179,7 @@ Resources:
           Environment:
             - Name: enable_suricata_update
               Value: !Ref SuricataUpdate
-            - Name: rule_sources
+            - Name: rule_sources #Read from SSM prameter instead ? Maybe not needed since we get rules first thing in entrypoint
               Value: !Ref SuricataRulesets
           LinuxParameters:
             Capabilities:
