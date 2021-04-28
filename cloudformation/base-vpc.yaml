@@ -362,7 +362,9 @@ Resources:
                   Action:
                     - codebuild:StartBuild
                     - codebuild:BatchGetBuilds
-                  Resource: !GetAtt SuricataBuildProject.Arn
+                  Resource: 
+                    - !GetAtt SuricataBuildProject.Arn
+                    - !GetAtt RulesFetcherBuildProject.Arn
                 -
                   Effect: Allow
                   Action:
@@ -458,6 +460,20 @@ Resources:
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /${AWS::StackName}/codebuild/container/suricata/uri
+      Type:  String
+      Value: " "
+
+  RulesFetcherMd5sumParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${AWS::StackName}/codebuild/container/rulesFetcher/md5sum
+      Type:  String
+      Value: " "
+
+  RulesFetcherImageUriParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${AWS::StackName}/codebuild/container/rulesFetcher/uri
       Type:  String
       Value: " "
 
@@ -576,8 +592,6 @@ Resources:
               - Name: SourceArtifact
             Namespace: SuricataBuild
             RunOrder: '2'
-      - Name: BuildStage
-        Actions:
           - Name: BuildRulesFetcher
             ActionTypeId:
               Category: Build
@@ -615,13 +629,11 @@ Resources:
                   "PrivateSubnet1": "${PrivateSubnet1}",
                   "PrivateSubnet2": "${PrivateSubnet2}",
                   "PrivateSubnet3": "${PrivateSubnet3}",
-                  "DynamicRulesS3Path:" "${SuricataBucket}/deployment/dynamic.rules"
+                  "DynamicRulesS3Path:" "${SuricataBucket}/deployment/dynamic.rules",
                   "SuricataImage": "#{SuricataBuild.image}",
                   "RulesFetcherImage": "#{RulesFetcherBuild.image}"
                 }
             RunOrder: '3'
-      - Name: DeployStage
-        Actions:
           - Name: DeployToS3
             ActionTypeId:
               Category: Deploy
@@ -633,7 +645,7 @@ Resources:
             Configuration:
               BucketName: !Ref SuricataBucket
               Extract: true
-              ObjectName: deployment/
+              ObjectKey: deployment
             RunOrder: '3'
           - Name: ExecuteChangeSet
             ActionTypeId:
