@@ -76,7 +76,7 @@ Resources:
   SuricataBucket:
     Type: AWS::S3::Bucket
     Properties: 
-      BucketName: ${AWS::StackName}-AutomationBucket 
+      BucketName: !Sub ${AWS::StackName}-AutomationBucket 
       AccessControl: Private
   
 

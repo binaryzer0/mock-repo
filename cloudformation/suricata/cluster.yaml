@@ -83,7 +83,7 @@ Resources:
   SuricataPcapBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: ${AWS::StackName}-PcapBucket
+      BucketName: !Sub ${AWS::StackName}-PcapBucket
       LifecycleConfiguration:
         Rules:
           - Status: Enabled
