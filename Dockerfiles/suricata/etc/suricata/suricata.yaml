@@ -1864,8 +1864,8 @@ default-rule-path: /var/lib/suricata/rules
 
 rule-files:
   - suricata.rules
-  - my.rules
-  - testmode.rules
+  - dynamic.rules
+  - /var/lib/suricata/static/rules/static.rules
 
 ##
 ## Auxiliary configuration files.

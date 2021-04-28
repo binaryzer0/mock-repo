@@ -69,16 +69,16 @@ Mappings:
 Resources:
   SuricataEcrRepo:
     Type: AWS::ECR::Repository
-    
-  SourceCodeBucket:
+
+  RulesFetcherEcrRepo:
+    Type: AWS::ECR::Repository
+
+  SuricataBucket:
     Type: AWS::S3::Bucket
     Properties: 
+      BucketName: ${AWS::StackName}-AutomationBucket 
       AccessControl: Private
   
-  CPipelineBucket:
-    Type: AWS::S3::Bucket
-    Properties: 
-      AccessControl: Private
 
   GitRepoToCodeCommitCustomResource:
     Type: Custom::CopyGitRepoToS3
@@ -103,7 +103,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:PutObject
-                Resource: !Sub ${SourceCodeBucket.Arn}/*
+                Resource: !Sub ${SuricataBucket.Arn}/cloneFromGithub/*
           PolicyName: PutS3Object
 
   GitRepoToCodeCommitLambda:
@@ -141,8 +141,8 @@ Resources:
                   shutil.make_archive(s3ObjectName, s3ObjectExtension,'cloned-repo','.')
                   logger.info('Created zip from repo. Files in working directory:')
                   logger.info(os.listdir(os.getcwd()))
-                  logger.info('Uploading %s to S3://%s/%s' % (s3ObjectFullName, s3Bucket, s3ObjectFullName))
-                  s3.upload_file(os.getcwd() + '/' + s3ObjectFullName, s3Bucket, s3ObjectFullName)
+                  logger.info('Uploading %s to S3://%s/%s' % (s3ObjectFullName, s3Bucket, 'cloneFromGithub/'+s3ObjectFullName))
+                  s3.upload_file(os.getcwd() + '/' + s3ObjectFullName, s3Bucket, 'cloneFromGithub/'+s3ObjectFullName)
                   logger.info('Upload Complete. Cleaning directory')
                   shutil.rmtree(path)
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
@@ -154,7 +154,7 @@ Resources:
       Environment: 
         Variables:
           GitRepo: !Ref GitRepo
-          s3Bucket: !Ref SourceCodeBucket
+          s3Bucket: !Ref SuricataBucket
       Handler: index.lambda_handler
       Runtime: python3.8
       Layers: 
@@ -169,8 +169,8 @@ Resources:
     Properties:
       Code: 
         S3:
-          Bucket: !Ref SourceCodeBucket
-          Key: ipsautomation.zip
+          Bucket: !Ref SuricataBucket
+          Key: cloneFromGithub/ipsautomation.zip
       RepositoryDescription: Repository for holding IPS solution Automation Code
       RepositoryName: !FindInMap [ Automation, Pipeline, SourceRepoName ]
 
@@ -388,8 +388,8 @@ Resources:
                   Action:
                     - s3:*
                   Resource: 
-                    - !GetAtt CPipelineBucket.Arn
-                    - !Join ["", [!GetAtt CPipelineBucket.Arn,"/*"]]
+                    - !GetAtt SuricataBucket.Arn
+                    - !Join ["", [!GetAtt SuricataBucket.Arn,"/*"]]
 
   CPipelineCodeBuildRole:
     Type: AWS::IAM::Role
@@ -444,8 +444,8 @@ Resources:
                   - s3:GetBucketAcl
                   - s3:GetBucketLocation
                 Resource:
-                  - !GetAtt CPipelineBucket.Arn
-                  - !Join ["", [!GetAtt CPipelineBucket.Arn,"/*"]]
+                  - !GetAtt SuricataBucket.Arn
+                  - !Join ["", [!GetAtt SuricataBucket.Arn,"/*"]]
 
   SuricataMd5sumParameter:
     Type: AWS::SSM::Parameter
@@ -497,12 +497,49 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: Dockerfiles/suricata/buildspec.yml
 
+  RulesFetcherBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties: 
+      Artifacts: 
+        Type: CODEPIPELINE
+      Environment: 
+        Type: LINUX_CONTAINER
+        Image: aws/codebuild/standard:4.0
+        ComputeType: BUILD_GENERAL1_SMALL
+        PrivilegedMode: true
+        ImagePullCredentialsType: CODEBUILD
+        EnvironmentVariables:
+          - Name: AWS_REGION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Region
+          - Name: MD5SUM_SSM_PARAMETER
+            Type: PLAINTEXT
+            Value: !Sub /${AWS::StackName}/codebuild/container/rulesFetcher/md5sum
+          - Name: CONTAINERURI_SSM_PARAMETER
+            Type: PLAINTEXT
+            Value: !Sub /${AWS::StackName}/codebuild/container/rulesFetcher/uri
+          - Name: AWS_ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: !Ref AWS::AccountId
+          - Name: IMAGE_REPO_NAME
+            Type: PLAINTEXT
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RulesFetcherEcrRepo}
+      LogsConfig: 
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: codebuild
+      ServiceRole: !GetAtt CPipelineCodeBuildRole.Arn
+      Source: 
+        Type: CODEPIPELINE
+        BuildSpec: Dockerfiles/rulesFetcher/buildspec.yml
+
+
   CPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties: 
       ArtifactStore: 
         Type: S3 
-        Location: !Ref CPipelineBucket
+        Location: !Ref SuricataBucket
       DisableInboundStageTransitions:
         -  
           Reason: "Disabling to permit code changes to internal stack before initial deployment"
@@ -527,7 +564,7 @@ Resources:
             RunOrder: '1'
       - Name: BuildStage
         Actions:
-          - Name: Build
+          - Name: BuildSuricataContainer
             ActionTypeId:
               Category: Build
               Owner: AWS
@@ -538,6 +575,20 @@ Resources:
             InputArtifacts:
               - Name: SourceArtifact
             Namespace: SuricataBuild
+            RunOrder: '2'
+      - Name: BuildStage
+        Actions:
+          - Name: BuildRulesFetcher
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: '1'
+            Configuration:
+              ProjectName: !Ref RulesFetcherBuildProject
+            InputArtifacts:
+              - Name: SourceArtifact
+            Namespace: RulesFetcherBuild
             RunOrder: '2'
       - Name: DeployStage
         Actions:
@@ -555,8 +606,8 @@ Resources:
               RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
               StackName: !Sub ${AWS::StackName}-suricata-cluster
               ChangeSetName: !Sub ${AWS::StackName}-suricata-cluster-cset
-              TemplatePath: SourceArtifact::deployment/suricata/cluster.yaml
-              TemplateConfiguration: SourceArtifact::deployment/suricata/cluster-template-configuration.json
+              TemplatePath: SourceArtifact::cloudformation/suricata/cluster.yaml
+              TemplateConfiguration: SourceArtifact::cloudformation/suricata/cluster-template-configuration.json
               ParameterOverrides: !Sub |
                 {
                   "VpcId": "${VPC}",
@@ -564,8 +615,25 @@ Resources:
                   "PrivateSubnet1": "${PrivateSubnet1}",
                   "PrivateSubnet2": "${PrivateSubnet2}",
                   "PrivateSubnet3": "${PrivateSubnet3}",
-                  "SuricataImage": "#{SuricataBuild.image}"
+                  "DynamicRulesS3Path:" "${SuricataBucket}/deployment/dynamic.rules"
+                  "SuricataImage": "#{SuricataBuild.image}",
+                  "RulesFetcherImage": "#{RulesFetcherBuild.image}"
                 }
+            RunOrder: '3'
+      - Name: DeployStage
+        Actions:
+          - Name: DeployToS3
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: S3
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceArtifact
+            Configuration:
+              BucketName: !Ref SuricataBucket
+              Extract: true
+              ObjectName: deployment/
             RunOrder: '3'
           - Name: ExecuteChangeSet
             ActionTypeId:

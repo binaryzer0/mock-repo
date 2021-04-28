@@ -43,16 +43,19 @@ Parameters:
     Type: String
     Default: ""
 
-  SuricataUpdate:
-    Description: "Enable Suricata update to update and manage rules. Enables the Emerging Threats Open Ruleset"
+  RulesFetcherImage:
+    Description: Container image
     Type: String
-    AllowedValues:
-      - true
-      - false
-    Default: true
+    Default: ""
+
+  DynamicRulesS3Path:
+    Description: S3 Path to dynamic.rules
+    Type: String
+    Default: ""
+
   SuricataRulesets:
     Description: |
-      If parameter "SuricataUpdate" is true. Enable other rulesets from the following index: https://www.openinfosecfoundation.org/rules/index.yaml in a comma delimted list. 
+      Enable rulesets from the following index: https://www.openinfosecfoundation.org/rules/index.yaml in a comma delimted list. 
       Example: et/open, sslbl/ssl-fp-blacklist, et/pro secret-code=password, etnetera/aggressive
     Type: String
     Default: ""
@@ -61,36 +64,26 @@ Parameters:
     Type: String
     Default: c5n.large
 
-Resources:
-  # TODO to be able to reload and add new rules and new rulesets on the fly witout rebuilding container.
-  # SuricataRulesetsParameter:
-  #   Type: AWS::SSM::Parameter
-  #   Properties:
-  #     Name: !Sub /${AWS::StackName}/suricata/rulesets
-  #     Type:  String
-  #     Value: !Ref SuricataRulesets
+Conditions:
+  HasSuricataRulesets:
+    !Not [!Equals [!Ref SuricataRulesets, ""]]
 
+
+Resources:
+  SuricataRulesetsParameter:
+    Condition: HasSuricataRulesets
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${AWS::StackName}/suricata/rulesets
+      Type:  String
+      Value: ""
 ##
 ## Monitoring
 ##
-
-  SuricataFastLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties: 
-      LogGroupName: /suricata/fast
-      RetentionInDays: !Ref FastLogRententionCloudWatch
-  SuricataEveLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties: 
-      LogGroupName: /suricata/eve
-      RetentionInDays: !Ref EveLogRententionCloudWatch
-  SuricataContainerStdoutLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties: 
-      LogGroupName: /suricata/container
   SuricataPcapBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: ${AWS::StackName}-PcapBucket
       LifecycleConfiguration:
         Rules:
           - Status: Enabled
@@ -100,7 +93,54 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
       
+  SuricataLogsEfs:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: True
+    
+  SuricataLogsEfsMountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref SuricataLogsEfs
+      SecurityGroups: 
+        - String
+      SubnetId: PrivateSubnet1
 
+  SuricataLogsEfsMountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref SuricataLogsEfs
+      SecurityGroups: 
+        - String
+      SubnetId: PrivateSubnet2
+
+  SuricataLogsEfsMountTarget3:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref SuricataLogsEfs
+      SecurityGroups: 
+        - String
+      SubnetId: PrivateSubnet3
+
+  SuricataLogsEfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VpcId
+      GroupDescription: >-
+        Suricata Security group
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref SuricataSecurityGroup
+          IpProtocol: "TCP"
+          FromPort: 2049
+          ToPort: 2049 
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+      Tags:
+        - Key: Name
+          Value: "EFS SG"
 ##
 ## ECS
 ##
@@ -169,18 +209,16 @@ Resources:
           Image: !Ref SuricataImage
           MemoryReservation: 256
           Essential: true
+          DependsOn:
+            - ContainerName: RulesFetcher
+              Condition: HEALTHY
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: "/suricata/container"
-              awslogs-region: "eu-north-1"
+              awslogs-group: "/suricata/container/suricata"
+              awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: "stdout"
               awslogs-create-group: "true"
-          Environment:
-            - Name: enable_suricata_update
-              Value: !Ref SuricataUpdate
-            - Name: rule_sources #Read from SSM prameter instead ? Maybe not needed since we get rules first thing in entrypoint
-              Value: !Ref SuricataRulesets
           LinuxParameters:
             Capabilities:
               Add:
@@ -189,6 +227,33 @@ Resources:
           MountPoints:
             - ContainerPath: /var/log/suricata
               SourceVolume: SuricataLogs
+          VolumesFrom:
+            - SourceContainer: RulesFetcher
+              ReadOnly: True
+        - Name: RulesFetcher
+          Image: !Ref RulesFetcherImage
+          MemoryReservation: 256
+          Essential: true
+          HealthCheck:
+            Command: [ "CMD-SHELL", "crontab -l || exit 1" ]
+            Interval: 30
+            Retries: 5
+            Timeout: 30
+            StartPeriod: 30
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: "/suricata/container/rulesfetcher"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: "stdout"
+              awslogs-create-group: "true"
+          Environment:
+            - Name: RulesetsSsmParameter
+              Value: !Sub /${AWS::StackName}/suricata/rulesets
+            - Name: REGION
+              Value: !Ref AWS::Region
+            - Name: DynamicRulesS3Path
+              Value: !Ref DynamicRulesS3Path
         - Name: "HTTP-healthcheck"
           Image: "nginx"
           MemoryReservation: 64
@@ -278,6 +343,17 @@ Resources:
                 Action:
                   - s3:PutObject
                 Resource: !Sub ${SuricataPcapBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub arn:aws:s3:::${DynamicRulesS3Path}
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameters
+                  - ssm:GetParameter
+                  - ssm:GetParametersByPath
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/suricata/*
           PolicyName: SuricataEc2Policy
       AssumeRolePolicyDocument:
         Statement:
@@ -285,7 +361,6 @@ Resources:
             Principal:
               Service:
                 - ec2.amazonaws.com
-                - ecs-tasks.amazonaws.com
             Action:
               - 'sts:AssumeRole'
       Path: /
@@ -310,17 +385,25 @@ Resources:
           !Sub |
           #!/bin/bash -ex
           
-          # Define variables:
+          ################
+          # Preperations #
+          ################
+
+          # Define variables
           curl --silent http://169.254.169.254/latest/dynamic/instance-identity/document > /home/ec2-user/iid;
           instance_ip=$(cat /home/ec2-user/iid | awk -F '"' '/privateIp/ {print $4}');
           instance_id=$(cat /home/ec2-user/iid | awk -F '"' '/instanceId/ {print $4}')
 
-          # Install packages:
+          # Install packages
           yum update -y;
           sudo yum install ethtool amazon-cloudwatch-agent awscli iptables-services -y;
           
           # Enable IP Forwarding:
           sudo sysctl -w net.ipv4.ip_forward=1;
+
+          ##########################
+          # IPTABLES CONFIGURATION #
+          ##########################
 
           # Start and configure iptables:
           systemctl enable iptables;
@@ -349,8 +432,18 @@ Resources:
           # Save iptables:
           service iptables save;
           
+          #####################
+          # EFS CONFIGURATION #
+          #####################
+
           mkdir /var/log/suricata/ 
+          sudo mount -t efs -o tls ${SuricataLogsEfs}:/$instance_id /var/log/suricata/
           chown 1000 /var/log/suricata/ #Make the suricata user the owner of the log folder.
+
+
+          ###########################
+          # LOGROTATE CONFIGURATION #
+          ###########################
 
           cat > /etc/logrotate.d/suricata << 'EOF'
           /var/log/suricata/*.log /var/log/suricata/eve.json {
@@ -367,11 +460,15 @@ Resources:
           
           cat > /opt/logrotate.sh << 'EOF'
           /usr/sbin/logrotate -s /var/lib/logrotate/logrotate.status /etc/logrotate.d/suricata
-          for I in $(ls -t /var/log/suricata/log.pcap.* | tail -n +2); do /usr/bin/aws s3 mv $I s3://suricata-suricatapcapbucket-tm43ylcrbkkk/$(date -d @${!I##*.} +'%Y/%m/%d/%H:%M:%S'.pcap)  --content-type "application/vnd.tcpdump.pcap" --metadata InstanceId=$instance_id; done
+          for I in $(ls -t /var/log/suricata/log.pcap.* | tail -n +2); do /usr/bin/aws s3 mv $I s3://${SuricataPcapBucket}/$(date -d @${!I##*.} +'%Y/%m/%d/%H:%M:%S'.pcap)  --content-type "application/vnd.tcpdump.pcap" --metadata InstanceId=$instance_id; done
           EOF
 
           chmod +x /opt/logrotate.sh
           echo "* * * * * /opt/logrotate.sh > /dev/null 2>&1" | crontab -
+
+          ####################
+          # CLOUDWATCH AGENT #
+          ####################
 
           cat > /opt/aws/amazon-cloudwatch-agent/bin/config.json << 'EOF'
           {
@@ -384,14 +481,7 @@ Resources:
                 "files": {
                   "collect_list": [
                     {
-                            "file_path": "/var/log/suricata/fast.log",
-                            "log_group_name": "/suricata/fast"
-                    },                                              {
-                            "file_path": "/var/log/suricata/eve.json",
-                            "log_group_name": "/suricata/eve"
-                    },                                              {
-                            "file_path": "/var/log/suricata/server.log",
-                            "log_group_name": "/suricata/container"
+                            "file_path": "/var/log/suricata/**.log",
                     }
                   ]
                 }
@@ -442,7 +532,10 @@ Resources:
           EOF
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json
 
-          # Config ECS
+          ##############
+          # ECS CONFIG #
+          ##############
+
           echo ECS_CLUSTER="${SuricataEcsCluster}" >> /etc/ecs/ecs.config;echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config;
 
   SuricataAutoScalingGroup:
@@ -476,13 +569,6 @@ Resources:
       GatewayLoadBalancerArns:
         - !Ref Gwlb
       AcceptanceRequired: False
- 
-  #VpcEndpointServicePermissions:
-  #  Type: AWS::EC2::VPCEndpointServicePermissions
-  #  Properties:
-  #    AllowedPrincipals:
-  #      - !Ref AwsAccountToWhitelist
-  #    ServiceId: !Ref VpcEndpointService
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
