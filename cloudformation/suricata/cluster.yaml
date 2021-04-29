@@ -26,7 +26,7 @@ Parameters:
     Default: 30
     Type: Number
 
-  FastLogRententionCloudWatch:
+  DefaultLogRententionCloudWatch:
     Description: "How many days Fast log should be saved in Cloudwatch"
     Default: 3
     Type: Number
@@ -80,6 +80,52 @@ Resources:
 ##
 ## Monitoring
 ##
+  SuricataEveLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/eve
+      RetentionInDays: !Ref EveLogRententionCloudWatch
+  SuricataFastLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/fast
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataHttpLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/http
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataTlsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/tls
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataAlertDebugLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/alert-debug
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataStatsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/stats
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataTcpDataLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/tcp-data
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataHttpDataLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/http-data
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+  SuricataContainerStdoutLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: /suricata/container
+      RetentionInDays: !Ref DefaultLogRententionCloudWatch
+    
   SuricataPcapBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -483,9 +529,15 @@ Resources:
               "logs_collected": {
                 "files": {
                   "collect_list": [
-                    {
-                            "file_path": "/var/log/suricata/**.log"
-                    }
+                    {"file_path": "/var/log/suricata/eve.json", "log_group_name": "/suricata/eve"},
+                    {"file_path": "/var/log/suricata/fast.log", "log_group_name": "/suricata/fast"},
+                    {"file_path": "/var/log/suricata/http.log", "log_group_name": "/suricata/http"},
+                    {"file_path": "/var/log/suricata/tls.log", "log_group_name": "/suricata/tls"},
+                    {"file_path": "/var/log/suricata/alert-debug.log", "log_group_name": "/suricata/alert-debug"},
+                    {"file_path": "/var/log/suricata/stats.log", "log_group_name": "/suricata/stats"},
+                    {"file_path": "/var/log/suricata/tcp-data.log", "log_group_name": "/suricata/tcp-data"},
+                    {"file_path": "/var/log/suricata/http-data.log", "log_group_name": "/suricata/http-data"},
+                    {"file_path": "/var/log/suricata/server.log","log_group_name": "/suricata/container"}
                   ]
                 }
               }
@@ -538,8 +590,11 @@ Resources:
           ##############
           # ECS CONFIG #
           ##############
-
-          echo ECS_CLUSTER="${SuricataEcsCluster}" >> /etc/ecs/ecs.config;echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config;
+          cat > /etc/ecs/ecs.config << 'EOF'
+          ECS_CLUSTER="${SuricataEcsCluster}"
+          ECS_ENABLE_CONTAINER_METADATA=true
+          ECS_BACKEND_HOST=
+          EOF
 
   SuricataAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
