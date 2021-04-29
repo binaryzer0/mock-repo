@@ -103,24 +103,24 @@ Resources:
     Properties: 
       FileSystemId: !Ref SuricataLogsEfs
       SecurityGroups: 
-        - String
-      SubnetId: PrivateSubnet1
+        - !Ref SuricataLogsEfsSecurityGroup
+      SubnetId: !Ref PrivateSubnet1
 
   SuricataLogsEfsMountTarget2:
     Type: AWS::EFS::MountTarget
     Properties: 
       FileSystemId: !Ref SuricataLogsEfs
       SecurityGroups: 
-        - String
-      SubnetId: PrivateSubnet2
+        - !Ref SuricataLogsEfsSecurityGroup
+      SubnetId: !Ref PrivateSubnet2
 
   SuricataLogsEfsMountTarget3:
     Type: AWS::EFS::MountTarget
     Properties: 
       FileSystemId: !Ref SuricataLogsEfs
       SecurityGroups: 
-        - String
-      SubnetId: PrivateSubnet3
+        - !Ref SuricataLogsEfsSecurityGroup
+      SubnetId: !Ref PrivateSubnet3
 
   SuricataLogsEfsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -435,10 +435,13 @@ Resources:
           #####################
           # EFS CONFIGURATION #
           #####################
+          mkdir -p /mnt/efs/
+          mount -t efs -o tls ${SuricataLogsEfs}:/ /mnt/efs/
+          mkdir -p /mnt/efs/$instance_id/suricata
 
-          mkdir /var/log/suricata/ 
-          sudo mount -t efs -o tls ${SuricataLogsEfs}:/$instance_id /var/log/suricata/
+          ln -s /mnt/efs/$instance_id/suricata /var/log/
           chown 1000 /var/log/suricata/ #Make the suricata user the owner of the log folder.
+
 
 
           ###########################
@@ -481,7 +484,7 @@ Resources:
                 "files": {
                   "collect_list": [
                     {
-                            "file_path": "/var/log/suricata/**.log",
+                            "file_path": "/var/log/suricata/**.log"
                     }
                   ]
                 }

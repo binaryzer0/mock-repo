@@ -3,7 +3,6 @@
 		"PcapLogRententionS3": "5",
 		"FastLogRententionCloudWatch": "3",
 		"EveLogRententionCloudWatch": "30",
-		"SuricataUpdate": "true",
 		"SuricataRulesets": "",
 		"SuricataInstanceType": "c5n.large"
     }

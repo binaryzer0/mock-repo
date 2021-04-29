@@ -194,140 +194,7 @@ Resources:
             Statement:
               -
                 Effect: Allow
-                Action: 
-                  - 'ec2:Describe*'
-                  - 'ec2:CreateVPC'
-                  - 'ec2:DeleteVpc'
-                  - 'ec2:CreateInternetGateway'
-                  - 'ec2:DeleteInternetGateway'
-                  - 'ec2:AttachInternetGateway'
-                  - 'ec2:DetachInternetGateway'
-                  - 'ec2:CreateSubnet'
-                  - 'ec2:ModifySubnetAttribute'
-                  - 'ec2:DeleteSubnet'
-                  - 'ec2:CreateRoute'
-                  - 'ec2:DeleteRoute'
-                  - 'ec2:CreateRouteTable'
-                  - 'ec2:DeleteRouteTable'
-                  - 'ec2:AssociateRouteTable'
-                  - 'ec2:DisassociateRouteTable'
-                  - 'ec2:CreateSecurityGroup'
-                  - 'ec2:DeleteSecurityGroup'
-                  - 'ec2:CreateVpcEndpointServiceConfiguration'
-                  - 'ec2:ModifyVpcEndpointServicePermissions'
-                  - 'ec2:DeleteVpcEndpointServiceConfigurations'
-                  - 'ec2:ModifyVpcAttribute'
-                  - 'ec2:CreateTags'
-                  - 'ec2:DeleteTags'
-                  - 'ec2:AuthorizeSecurityGroupEgress'
-                  - 'ec2:AuthorizeSecurityGroupIngress'                  
-                  - 'ec2:RevokeSecurityGroupEgress'
-                  - 'ec2:RevokeSecurityGroupIngress'
-                Resource: '*'
-              -
-                Effect: Allow
-                Action: 
-                  - 'logs:Describe*'
-                  - 'logs:CreateLogGroup'
-                  - 'logs:DeleteLogGroup'
-                  - 'logs:PutRetentionPolicy'
-                  - 'logs:DeleteRetentionPolicy'
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 's3:Describe*'
-                  - 's3:CreateBucket'
-                  - 's3:DeleteBucket'
-                  - 's3:PutEncryptionConfiguration'
-                  - 's3:PutLifecycleConfiguration'
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'ecs:Describe*'
-                  - 'ecs:CreateCluster'
-                  - 'ecs:DeleteCluster'
-                  - 'ecs:CreateService'
-                  - 'ecs:UpdateService'
-                  - 'ecs:DeleteService'
-                  - 'ecs:CreateCapacityProvider'
-                  - 'ecs:DeleteCapacityProvider'
-                  - 'ecs:PutClusterCapacityProviders'
-                  - 'ecs:CreateTaskSet'
-                  - 'ecs:DeleteTaskSet'
-                  - 'ecs:RegisterTaskDefinition'
-                  - 'ecs:DeregisterTaskDefinition'
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'ecr:Describe*'
-                  - 'ecr:CreateRepository'
-                  - 'ecr:DeleteRepository'
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'elasticloadbalancing:Describe*'
-                  - 'elasticloadbalancing:DeleteLoadBalancer'
-                  - 'elasticloadbalancing:CreateListener'
-                  - 'elasticloadbalancing:CreateLoadBalancer'
-                  - 'elasticloadbalancing:CreateTargetGroup'
-                  - 'elasticloadbalancing:DeleteTargetGroup'
-                  - 'elasticloadbalancing:ModifyTargetGroupAttributes'
-                  - 'elasticloadbalancing:ModifyLoadBalancerAttributes'
-                  - 'elasticloadbalancing:DeleteListener'
-                  - 'elasticloadbalancing:AddTags'
-                  - 'elasticloadbalancing:RemoveTags'                  
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'autoscaling:Describe*'
-                  - 'autoscaling:CreateAutoScalingGroup'
-                  - 'autoscaling:DeleteAutoScalingGroup'
-                  - 'autoscaling:CreateLaunchConfiguration'
-                  - 'autoscaling:DeleteLaunchConfiguration'
-                  - 'autoscaling:UpdateAutoScalingGroup'
-                  - 'autoscaling:CreateOrUpdateTags'
-                  - 'autoscaling:DeleteTags'
-
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'lambda:Describe*'
-                  - 'lambda:CreateFunction'
-                  - 'lambda:DeleteFunction'
-                  - 'lambda:GetFunctionConfiguration'
-                  - 'lambda:InvokeFunction'
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'iam:Describe*'
-                  - 'iam:GetRole'
-                  - 'iam:CreateServiceLinkedRole'
-                  - 'iam:DeleteServiceLinkedRole'
-                  - 'iam:CreateRole'
-                  - 'iam:DeleteRole'
-                  - 'iam:CreatePolicy'
-                  - 'iam:DeletePolicy'
-                  - 'iam:PutRolePolicy'
-                  - 'iam:AttachRolePolicy'
-                  - 'iam:DetachRolePolicy'
-                  - 'iam:DeleteRolePolicy'
-                  - 'iam:CreateInstanceProfile'
-                  - 'iam:AddRoleToInstanceProfile'
-                  - 'iam:RemoveRoleFromInstanceProfile'
-                  - 'iam:DeleteInstanceProfile'
-                  - 'iam:PassRole'
-                Resource: '*'
-              - 
-                Effect: Allow
-                Action: 
-                  - 'ssm:GetParameters'
+                Action: '*'
                 Resource: '*'
 
   CPipelineServiceRole:
@@ -432,9 +299,7 @@ Resources:
               -
                 Effect: Allow
                 Action:
-                  - ssm:GetParameters
-                  - ssm:GetParameter
-                  - ssm:GetParametersByPath
+                  - ssm:GetParameter*
                   - ssm:PutParameter
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/codebuild/*
               -
@@ -592,7 +457,7 @@ Resources:
               - Name: SourceArtifact
             Namespace: SuricataBuild
             RunOrder: '2'
-          - Name: BuildRulesFetcher
+          - Name: BuildRulesFetcherContainer
             ActionTypeId:
               Category: Build
               Owner: AWS
@@ -629,7 +494,7 @@ Resources:
                   "PrivateSubnet1": "${PrivateSubnet1}",
                   "PrivateSubnet2": "${PrivateSubnet2}",
                   "PrivateSubnet3": "${PrivateSubnet3}",
-                  "DynamicRulesS3Path:" "${SuricataBucket}/deployment/dynamic.rules",
+                  "DynamicRulesS3Path": "${SuricataBucket}/deployment/dynamic.rules",
                   "SuricataImage": "#{SuricataBuild.image}",
                   "RulesFetcherImage": "#{RulesFetcherBuild.image}"
                 }

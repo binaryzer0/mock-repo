@@ -1,7 +1,7 @@
 
 FROM public.ecr.aws/amazonlinux/amazonlinux:2.0.20210326.0-amd64
 
-RUN yum -y install cronie python-pip && \
+RUN yum -y install cronie python-pip awscli && \
   yum clean all && \
   rm -rf /var/cache/yum /etc/cron.*/* && \
   pip install --upgrade suricata-update
