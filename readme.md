@@ -3,7 +3,6 @@ This repository has deployment, installation and clean up instructions on how to
 
 <img width="100" height="160" style="float: right;" src="img/meerkat.jpg">
 
-
 ## How to deploy
 
 ### Quickstart
@@ -17,7 +16,7 @@ We provide two different QuickStarts:
 
 ![Solution Overview](img/suricata-docker-Suricata-cluster.png)
 ##### In the following scenario we will use /deployment/base-create-vpc.yaml.
- (Link to blog here which does the same steps with images)
+
 1. Create a Cloudformation stack using the Cloudformation template /deployment/base-create-vpc.yaml in your account.
 2. After the stack is created, go to AWS CodeCommit where you will see a repository which looks identical to this repository. Nothing has been built yet, so if you want you can now make changes to the Suricata config, Rulesets, Cloudformation Parameters etc.
 3. Go to CodePipeline and select "Enable transition". The pipeline will now start to build a docker image and after that deploy your suricata cluster using Cloudformation.
@@ -30,7 +29,17 @@ You can find the CloudFormation template which is deploying the Suricata cluster
 
 You need to build the suricata Dockerfiles and provide the built Suricata Container image together with an existing VPC which need to have three private subnets with a default route to NAT to the Cloudforamtion suricata cluster template.
 
-### Commmon questions:
+## How to cleanup
+
+### Pipeline Deployed Artefact
+
+The pipeline deploys a child stack from the code in the CodeCommit repository. To remove this, you can simply delete the stack that the pipeline created. You may need to empty S3 buckets of content before you do this!
+
+### Pipeline Base Stack
+
+The pipeline stack was deployed from a initiation template ( this is also present in the code in the CodeCommit repository ). To remove this, you can simply delete the stack that defined the pipeline. You may need to empty S3 buckets of content before you do this!
+## Commmon questions:
+
 **How can I add my own rules?**
 In the current setup, you need to build your rules into the docker image. Add your rules to: Dockerfiles/suricata/var/lib/rules/my.rules and rebuild, upload and deploy your new docker image. The thought here is to keep your rules versionized together with the suricata config and suricata version.
 
@@ -48,24 +57,10 @@ You can disable these logs or enable other logs by editing the suricata config: 
 
 ### Roadmap / TODO / Ideas:
 
-* Support adding suricata rules in parameter store and update them on-the-fly without having to rebuild the container image. In a similar way we add and update the managed suricata rules from https://www.openinfosecfoundation.org/rules/index.yaml - [COMPLETED]
+
 * Create a template which dont deploy a full VPC, so customers can create the Suricata ECS cluster in an existing architecture.
 * Move Logrotation, CloudWatch agent to sidecar containers from EC2 configuration
 * Graviton / ARM support
 * Clean the CFN template(s), eg adding tags, Metadata, see over naming conventions.
-* An official Public docker image and repo to enable the one-click deployment to leverage a dockerimgae hosted in an amazon repository instead of my own personal docker repo (Bizzelicious/suricata) [COMPLETED]
 * Enable "Deployment circuit breaker" so ECS can automatically rollback bad deployments.
 * Create sample CFN templates that creates some example CW alerts, dashboards etc that uses the ingested logs.
-
-
-
-###OLD (kept temporary for easy copy/paste)
-### If you want to build your own Dockerfile
-1. Clone repo
-2. Build and upload dockerfile to a docker repo, eg ECR:
-    1. `cd Dockerfiles/suricata/`
-    2. `aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <AccountId>.dkr.ecr.<region>.amazonaws.com`
-    3. `docker build -t suricata .`
-    4. `docker tag suricata:latest <AccountId>.dkr.ecr.<region>.amazonaws.com/suricata:6.0.1-1`
-    5. `docker push <AccountId>.dkr.ecr.<region>.amazonaws.com/suricata:6.0.1-1`
-3. run cloudformation/cloudformation.yml to setup the Suricata cluster on ECS. The cloudformation builds an appliance VPC similar to this: https://github.com/aws-samples/aws-gateway-load-balancer-code-samples/tree/main/aws-cloudformation/distributed_architecture
