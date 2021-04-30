@@ -1,9 +1,9 @@
 {
 	"Parameters" : {
 		"PcapLogRententionS3": "5",
-		"FastLogRententionCloudWatch": "3",
+		"DefaultLogRententionCloudWatch": "3",
 		"EveLogRententionCloudWatch": "30",
-		"SuricataRulesets": "",
+		"SuricataRulesets": "et/open, another/rules",
 		"SuricataInstanceType": "c5n.large"
     }
 }
