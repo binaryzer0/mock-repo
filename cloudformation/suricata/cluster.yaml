@@ -83,47 +83,47 @@ Resources:
   SuricataEveLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/eve
+      LogGroupName: /${AWS::StackName}/suricata/eve
       RetentionInDays: !Ref EveLogRententionCloudWatch
   SuricataFastLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/fast
+      LogGroupName: /${AWS::StackName}/suricata/fast
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataHttpLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/http
+      LogGroupName: /${AWS::StackName}/suricata/http
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataTlsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/tls
+      LogGroupName: /${AWS::StackName}/suricata/tls
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataAlertDebugLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/alert-debug
+      LogGroupName: /${AWS::StackName}/suricata/alert-debug
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataStatsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/stats
+      LogGroupName: /${AWS::StackName}/suricata/stats
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataTcpDataLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/tcp-data
+      LogGroupName: /${AWS::StackName}/suricata/tcp-data
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataHttpDataLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/http-data
+      LogGroupName: /${AWS::StackName}/suricata/http-data
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataContainerStdoutLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /suricata/container
+      LogGroupName: /${AWS::StackName}/suricata/container
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
     
   SuricataPcapBucket:
