@@ -27,7 +27,7 @@ We provide two different QuickStarts:
 
 This solution provides three levels of Ruleset management. 
 
-* This first is via the 'cluster-template-configuration.json' file. In here you can specify additional rulesets to be downloaded by the Suricata engine, periodically ( 60 seconds by default ) and loaded into the engine. The rulset definitions are baked into the image.....
+* This first is via the 'cluster-template-configuration.json' file. In here you can specify additional rulesets to be downloaded by the Suricata engine, periodically ( 60 seconds by default ) and loaded into the engine. These rulesets are applied on-the-fly without the need to rebuild or redeploy the Suricata container.
 
 ```
     {
@@ -41,14 +41,16 @@ This solution provides three levels of Ruleset management.
     }
 ```
 
-* The second location for rule entry is within the /Dockerfiles/suricata/static.rules file. This rule file does not update dynamically and is tied to the latest commit in the repo ( think about using this for rules that shall always be enforced and should not be removed! )
+* The second location for rule entry is within the `/Dockerfiles/suricata/static.rules` file. This rule file does not update dynamically and is built into the container image as part of the image creation process by CodeBuild. `static.rules` should be used when you want to keep your rules versionized together with the suricata config and suricata version or for rules that shall always be enforced and should not be removed. Rules in `static.rules` are NOT applied on-the-fly and you need to rebuild and redeploy the Suricata container with the updated rules.
+**NOTICE:** When you edit `static.rules` and build a new container, a new task definition version in ECS is created and automatically deployed to your ECS cluster. This means that the cluster will deploy your new task definition and container image by launching new EC2s using blue/green deployment. When this happens, existing flows need to be reset by client or timed out. New flows are distributed to the new EC2s/Suricata containers.
 
-* The third location is within the /dynamic.rules file within the code repo base directory. When rules are specified here they are baked into the image as part of the image creation process by CodeBuild. However this is not the intention for this rule file. It is intended that an operator will update the rules file in an S3 bucket as part of the operational changes to the IPS service and the same update process that downloads third party updates will read the S3 file contents periodically ( 60 seconds by default ) and load them into the dynamic.rules file and the Suricata engine.
+* The third location is within the `/dynamic.rules` file within the code repo base directory. Rules in `/dynamic.rules` are applied and read on-the-fly by the suricata engine. `/dynamic.rules` should be used when you wan to deploy and apply rules on-the-fly and don't want, or need to to keep your rules versionized together with the suricata config and suricata version.
+The `/dynamic.rules` file are are deployed to S3 and picked up by the RulesFetcher-container which periodically checks the S3 location once every minute. These rules are applied on-the-fly without the need to rebuild or redeploy the Suricata container
 
 ### Manual deployment / Using existing CI/CD pipeline
 If you already have an existing CI/CD pipeline, a Git repository or similar that you want to use instead, this is also possible.
 
-You can find the CloudFormation template which is deploying the Suricata cluster in: /deployment/suricata/ and the various steps to build the Container image in /Dockerfiles/*/buildspec.yml.
+You can find the CloudFormation template which is deploying the Suricata cluster in: /deployment/suricata/ and the various steps to build the Container images in /Dockerfiles/*/buildspec.yml.
 
 You need to build the suricata Dockerfiles and provide the built Suricata Container image together with an existing VPC which need to have three private subnets with a default route to NAT to the Cloudforamtion suricata cluster template.
 
