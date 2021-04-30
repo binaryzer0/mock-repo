@@ -1,1 +1,4 @@
 Dockerfiles/.DS_Store
+Dockerfiles/suricata/etc/.DS_Store
+.gitignore
+.DS_Store
