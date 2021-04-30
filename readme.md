@@ -22,6 +22,29 @@ We provide two different QuickStarts:
 3. Go to CodePipeline and select "Enable transition". The pipeline will now start to build a docker image and after that deploy your suricata cluster using Cloudformation.
 4. For quick testing: Create a Cloudformation stack using https://github.com/aws-samples/aws-gateway-load-balancer-code-samples/blob/main/aws-cloudformation/distributed_architecture/DistributedArchitectureSpokeVpc2Az.yaml and use the Cloudformation output of `ApplianceVpcEndpointServiceName` from the suricata cluster cloudforamtion stack as the input to the `ServiceName` parameter.
 
+
+##### Ruleset Management
+
+This solution provides three levels of Ruleset management. 
+
+* This first is via the 'cluster-template-configuration.json' file. In here you can specify additional rulesets to be downloaded by the Suricata engine, periodically ( 60 seconds by default ) and loaded into the engine. The rulset definitions are baked into the image.....
+
+```
+    {
+        "Parameters" : {
+            "PcapLogRententionS3": "5",
+            "DefaultLogRententionCloudWatch": "3",
+            "EveLogRententionCloudWatch": "30",
+            "SuricataRulesets": "",
+            "SuricataInstanceType": "t3.large"
+        }
+    }
+```
+
+* The second location for rule entry is within the /Dockerfiles/suricata/static.rules file. This rule file does not update dynamically and is tied to the latest commit in the repo ( think about using this for rules that shall always be enforced and should not be removed! )
+
+* The third location is within the /dynamic.rules file within the code repo base directory. When rules are specified here they are baked into the image as part of the image creation process by CodeBuild. However this is not the intention for this rule file. It is intended that an operator will update the rules file in an S3 bucket as part of the operational changes to the IPS service and the same update process that downloads third party updates will read the S3 file contents periodically ( 60 seconds by default ) and load them into the dynamic.rules file and the Suricata engine.
+
 ### Manual deployment / Using existing CI/CD pipeline
 If you already have an existing CI/CD pipeline, a Git repository or similar that you want to use instead, this is also possible.
 

@@ -3,7 +3,7 @@
 		"PcapLogRententionS3": "5",
 		"DefaultLogRententionCloudWatch": "3",
 		"EveLogRententionCloudWatch": "30",
-		"SuricataRulesets": "et/open, another/rules",
-		"SuricataInstanceType": "c5n.large"
+		"SuricataRulesets": "",
+		"SuricataInstanceType": "t3.large"
     }
 }
