@@ -17,7 +17,7 @@ RUN curl -s https://www.openinfosecfoundation.org/download/suricata-6.0.0.tar.gz
   mkdir -p /var/lib/suricata/update/ && \
   rm -rf /tmp/*
 
-COPY docker-entrypoint.sh rules-updater.sh supervisord.conf/
+COPY docker-entrypoint.sh rules-updater.sh supervisord.conf /
 
 RUN  groupadd --gid 1000 suricata && \
   useradd --gid 1000 --uid 1000 --create-home suricata && \
