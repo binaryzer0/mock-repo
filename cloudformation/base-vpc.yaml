@@ -266,27 +266,23 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-          -
-            Effect: Allow
+          - Effect: Allow
             Principal:
               Service:
                 - codebuild.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        -
-          PolicyName: !FindInMap [ Automation, CodeBuild, RolePolicyName ]
+        - PolicyName: SuricataCodebuildRolePolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: '*'
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - ecr:PutImage
                   - ecr:PutImageTagMutability
@@ -295,15 +291,21 @@ Resources:
                   - ecr:CompleteLayerUpload
                   - ecr:BatchCheckLayerAvailability
                   - ecr:GetAuthorizationToken
+                  - ecr:BatchGetImage 
+                  - ecr:GetDownloadUrlForLayer
+                Resource:
+                  - !Sub ${SuricataEcrRepo.Arn}
+                  - !Sub ${RulesFetcherEcrRepo.Arn}
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
                 Resource: '*'
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - ssm:GetParameter*
                   - ssm:PutParameter
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/codebuild/*
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -311,8 +313,8 @@ Resources:
                   - s3:GetBucketAcl
                   - s3:GetBucketLocation
                 Resource:
-                  - !GetAtt SuricataBucket.Arn
-                  - !Join ["", [!GetAtt SuricataBucket.Arn,"/*"]]
+                  - !Sub ${SuricataBucket.Arn}
+                  - !Sub ${SuricataBucket.Arn}/*
 
   SuricataMd5sumParameter:
     Type: AWS::SSM::Parameter

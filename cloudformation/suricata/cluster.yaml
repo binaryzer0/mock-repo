@@ -76,54 +76,54 @@ Resources:
     Properties:
       Name: !Sub /${AWS::StackName}/suricata/rulesets
       Type:  String
-      Value: ""
+      Value: !Ref SuricataRulesets
 ##
 ## Monitoring
 ##
   SuricataEveLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/eve
+      LogGroupName: !Sub /${AWS::StackName}/suricata/eve
       RetentionInDays: !Ref EveLogRententionCloudWatch
   SuricataFastLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/fast
+      LogGroupName: !Sub /${AWS::StackName}/suricata/fast
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataHttpLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/http
+      LogGroupName: !Sub /${AWS::StackName}/suricata/http
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataTlsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/tls
+      LogGroupName: !Sub /${AWS::StackName}/suricata/tls
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataAlertDebugLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/alert-debug
+      LogGroupName: !Sub /${AWS::StackName}/suricata/alert-debug
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataStatsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/stats
+      LogGroupName: !Sub /${AWS::StackName}/suricata/stats
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataTcpDataLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/tcp-data
+      LogGroupName: !Sub /${AWS::StackName}/suricata/tcp-data
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataHttpDataLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/http-data
+      LogGroupName: !Sub /${AWS::StackName}/suricata/http-data
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
   SuricataContainerStdoutLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: /${AWS::StackName}/suricata/container
+      LogGroupName: !Sub /${AWS::StackName}/suricata/container
       RetentionInDays: !Ref DefaultLogRententionCloudWatch
     
   SuricataPcapBucket:
@@ -276,9 +276,11 @@ Resources:
           VolumesFrom:
             - SourceContainer: RulesFetcher
               ReadOnly: True
+          PortMappings: 
+            -  ContainerPort: 80
         - Name: RulesFetcher
           Image: !Ref RulesFetcherImage
-          MemoryReservation: 256
+          MemoryReservation: 32
           Essential: true
           HealthCheck:
             Command: [ "CMD-SHELL", "crontab -l || exit 1" ]
@@ -300,14 +302,7 @@ Resources:
               Value: !Ref AWS::Region
             - Name: DynamicRulesS3Path
               Value: !Ref DynamicRulesS3Path
-        - Name: "HTTP-healthcheck"
-          Image: "nginx"
-          MemoryReservation: 64
-          Essential: true
-          LogConfiguration:
-            LogDriver: none
-          PortMappings: 
-          -  ContainerPort: 80
+
 ##
 ## Compute
 ##
@@ -591,7 +586,7 @@ Resources:
           # ECS CONFIG #
           ##############
           cat > /etc/ecs/ecs.config << 'EOF'
-          ECS_CLUSTER="${SuricataEcsCluster}"
+          ECS_CLUSTER=${SuricataEcsCluster}
           ECS_ENABLE_CONTAINER_METADATA=true
           ECS_BACKEND_HOST=
           EOF
