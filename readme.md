@@ -11,7 +11,7 @@ The Quickstart template will copy this GitHub Repo into AWS CodeCommit which wil
 
 We provide two different QuickStarts:
 
-The '/cloudformation/base-vpc.yaml' teamplte creates a complete new environment with a VPC where Suricata will be deployed.' Should you wish to use an existing VPC you will need to ensure that it has three private subnets with a default route to a Nat Gateway. The Nat Gateway will of course need to be within a subnet that has the ability to reach the internet via an Internet Gateway.
+The '/cloudformation/base-vpc.yaml' template creates a complete new environment with a VPC where Suricata will be deployed.' Should you wish to use an existing VPC you will need to ensure that it has three private subnets with a default route to a Nat Gateway. The Nat Gateway will of course need to be within a subnet that has the ability to reach the internet via an Internet Gateway.
 
 ![Solution Overview](img/suricata-docker-Suricata-cluster.png)
 ##### In the following scenario we will use /cloudformation/base-vpc.yaml.

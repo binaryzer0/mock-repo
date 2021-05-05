@@ -524,15 +524,15 @@ Resources:
               "logs_collected": {
                 "files": {
                   "collect_list": [
-                    {"file_path": "/var/log/suricata/eve.json", "log_group_name": "/suricata/eve"},
-                    {"file_path": "/var/log/suricata/fast.log", "log_group_name": "/suricata/fast"},
-                    {"file_path": "/var/log/suricata/http.log", "log_group_name": "/suricata/http"},
-                    {"file_path": "/var/log/suricata/tls.log", "log_group_name": "/suricata/tls"},
-                    {"file_path": "/var/log/suricata/alert-debug.log", "log_group_name": "/suricata/alert-debug"},
-                    {"file_path": "/var/log/suricata/stats.log", "log_group_name": "/suricata/stats"},
-                    {"file_path": "/var/log/suricata/tcp-data.log", "log_group_name": "/suricata/tcp-data"},
-                    {"file_path": "/var/log/suricata/http-data.log", "log_group_name": "/suricata/http-data"},
-                    {"file_path": "/var/log/suricata/server.log","log_group_name": "/suricata/container"}
+                    {"file_path": "/var/log/suricata/eve.json", "log_group_name": "/${AWS::StackName}/suricata/eve"},
+                    {"file_path": "/var/log/suricata/fast.log", "log_group_name": "/${AWS::StackName}/suricata/fast"},
+                    {"file_path": "/var/log/suricata/http.log", "log_group_name": "/${AWS::StackName}/suricata/http"},
+                    {"file_path": "/var/log/suricata/tls.log", "log_group_name": "/${AWS::StackName}/suricata/tls"},
+                    {"file_path": "/var/log/suricata/alert-debug.log", "log_group_name": "/${AWS::StackName}/suricata/alert-debug"},
+                    {"file_path": "/var/log/suricata/stats.log", "log_group_name": "/${AWS::StackName}/suricata/stats"},
+                    {"file_path": "/var/log/suricata/tcp-data.log", "log_group_name": "/${AWS::StackName}/suricata/tcp-data"},
+                    {"file_path": "/var/log/suricata/http-data.log", "log_group_name": "/${AWS::StackName}/suricata/http-data"},
+                    {"file_path": "/var/log/suricata/server.log","log_group_name": "/${AWS::StackName}/suricata/container"}
                   ]
                 }
               }

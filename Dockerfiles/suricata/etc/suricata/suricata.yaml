@@ -286,7 +286,7 @@ outputs:
         # and be sure to enable http2 in the app-layer section.
         #- http2
         - stats:
-            totals: yes       # stats for all threads merged together
+            totals: no       # stats for all threads merged together
             threads: no       # per thread stats
             deltas: no        # include delta values
         # bi-directional flows
