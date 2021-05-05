@@ -587,12 +587,6 @@ Resources:
       EnableDnsSupport: true
       EnableDnsHostnames: true
 
-  IPv6CidrBlock:
-    Type: AWS::EC2::VPCCidrBlock
-    Properties:
-      VpcId: !Ref VPC
-      AmazonProvidedIpv6CidrBlock: true
-
   InternetGateway:
     Type: AWS::EC2::InternetGateway
 
@@ -602,38 +596,27 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  EgressOnlyInternetGateway:
-    Type: AWS::EC2::EgressOnlyInternetGateway
-    Properties:
-      VpcId: !Ref VPC
-
 # Public Subnets
   PublicSubnet1:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       CidrBlock: !Ref PublicSubnet1Cidr
-      Ipv6CidrBlock: !Select [0, !Cidr [!Select [0, !GetAtt 'VPC.Ipv6CidrBlocks'], "6", "64"]]
       AvailabilityZone: !Select [0, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       CidrBlock: !Ref PublicSubnet2Cidr
-      Ipv6CidrBlock: !Select [1, !Cidr [!Select [0, !GetAtt 'VPC.Ipv6CidrBlocks'], "6", "64"]]
       AvailabilityZone: !Select [1, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
 
   PublicSubnet3:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       CidrBlock: !Ref PublicSubnet3Cidr
-      Ipv6CidrBlock: !Select [2, !Cidr [!Select [0, !GetAtt 'VPC.Ipv6CidrBlocks'], "6", "64"]]
       AvailabilityZone: !Select [2, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
@@ -647,13 +630,6 @@ Resources:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref PublicSubnetRouteTable
-      GatewayId: !Ref InternetGateway
-
-  PublicSubnetDefaultIPv6Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationIpv6CidrBlock : ::/0
       RouteTableId: !Ref PublicSubnetRouteTable
       GatewayId: !Ref InternetGateway
 
@@ -712,10 +688,8 @@ Resources:
 # Private Subnets
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       CidrBlock: !Ref PrivateSubnet1Cidr
-      Ipv6CidrBlock: !Select [3, !Cidr [!Select [0, !GetAtt 'VPC.Ipv6CidrBlocks'], "6", "64"]]
       AvailabilityZone: !Select [0, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
@@ -732,13 +706,6 @@ Resources:
       RouteTableId: !Ref PrivateSubnet1RouteTable
       NatGatewayId: !Ref NatGwPublicSubnet1
 
-  PrivateSubnet1DefaultIPv6Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationIpv6CidrBlock: ::/0
-      RouteTableId: !Ref PrivateSubnet1RouteTable
-      EgressOnlyInternetGatewayId: !Ref EgressOnlyInternetGateway
-
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -747,10 +714,8 @@ Resources:
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       CidrBlock: !Ref PrivateSubnet2Cidr
-      Ipv6CidrBlock: !Select [4, !Cidr [!Select [0, !GetAtt 'VPC.Ipv6CidrBlocks'], "6", "64"]]
       AvailabilityZone: !Select [1, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
@@ -767,13 +732,6 @@ Resources:
       RouteTableId: !Ref PrivateSubnet2RouteTable
       NatGatewayId: !Ref NatGwPublicSubnet2
 
-  PrivateSubnet2DefaultIPv6Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationIpv6CidrBlock: ::/0
-      RouteTableId: !Ref PrivateSubnet2RouteTable
-      EgressOnlyInternetGatewayId: !Ref EgressOnlyInternetGateway
-
   PrivateSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -782,10 +740,8 @@ Resources:
 
   PrivateSubnet3:
     Type: AWS::EC2::Subnet
-    DependsOn: IPv6CidrBlock
     Properties:
       CidrBlock: !Ref PrivateSubnet3Cidr
-      Ipv6CidrBlock: !Select [5, !Cidr [!Select [0, !GetAtt 'VPC.Ipv6CidrBlocks'], "6", "64"]]
       AvailabilityZone: !Select [2, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
@@ -801,13 +757,6 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       RouteTableId: !Ref PrivateSubnet3RouteTable
       NatGatewayId: !Ref NatGwPublicSubnet3
-
-  PrivateSubnet3DefaultIPv6Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationIpv6CidrBlock: ::/0
-      RouteTableId: !Ref PrivateSubnet3RouteTable
-      EgressOnlyInternetGatewayId: !Ref EgressOnlyInternetGateway
 
   PrivateSubnet3RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
