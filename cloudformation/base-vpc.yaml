@@ -444,7 +444,7 @@ Resources:
               PollForSourceChanges: 'false'
             OutputArtifacts:
               - Name: SourceArtifact
-            RunOrder: '1'
+            RunOrder: 1
       - Name: BuildStage
         Actions:
           - Name: BuildSuricataContainer
@@ -458,7 +458,7 @@ Resources:
             InputArtifacts:
               - Name: SourceArtifact
             Namespace: SuricataBuild
-            RunOrder: '2'
+            RunOrder: 2
           - Name: BuildRulesFetcherContainer
             ActionTypeId:
               Category: Build
@@ -470,7 +470,7 @@ Resources:
             InputArtifacts:
               - Name: SourceArtifact
             Namespace: RulesFetcherBuild
-            RunOrder: '2'
+            RunOrder: 2
       - Name: DeployStage
         Actions:
           - Name: CreateChangeSet
@@ -500,7 +500,7 @@ Resources:
                   "SuricataImage": "#{SuricataBuild.image}",
                   "RulesFetcherImage": "#{RulesFetcherBuild.image}"
                 }
-            RunOrder: '3'
+            RunOrder: 3
           - Name: DeployToS3
             ActionTypeId:
               Category: Deploy
@@ -513,7 +513,7 @@ Resources:
               BucketName: !Ref SuricataBucket
               Extract: true
               ObjectKey: deployment
-            RunOrder: '3'
+            RunOrder: 3
           - Name: ExecuteChangeSet
             ActionTypeId:
               Category: Deploy
@@ -525,7 +525,7 @@ Resources:
               ChangeSetName: !Sub ${AWS::StackName}-suricata-cluster-cset
               RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
               StackName: !Sub ${AWS::StackName}-suricata-cluster
-            RunOrder: '4'
+            RunOrder: 4
 
   CPipelineCloudWatchEventRole:
       Type: AWS::IAM::Role
