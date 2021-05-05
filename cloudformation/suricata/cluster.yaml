@@ -437,7 +437,7 @@ Resources:
 
           # Install packages
           yum update -y;
-          sudo yum install ethtool amazon-cloudwatch-agent awscli iptables-services -y;
+          yum install ethtool awscli iptables-services -y;
           
           # Enable IP Forwarding:
           sudo sysctl -w net.ipv4.ip_forward=1;
@@ -451,15 +451,15 @@ Resources:
           systemctl start iptables;
           
           # Flush the nat and mangle tables, flush all chains (-F), and delete all non-default chains (-X):
-          sudo iptables -t nat -F
-          sudo iptables -t mangle -F
-          sudo iptables -F
-          sudo iptables -X
+          iptables -t nat -F
+          iptables -t mangle -F
+          iptables -F
+          iptables -X
 
           # Set the default policies for each of the built-in chains to ACCEPT:
-          sudo iptables -P INPUT ACCEPT
-          sudo iptables -P FORWARD ACCEPT
-          sudo iptables -P OUTPUT ACCEPT
+          iptables -P INPUT ACCEPT
+          iptables -P FORWARD ACCEPT
+          iptables -P OUTPUT ACCEPT
 
           # Set a punt to Suricata via NFQUEUE
           iptables -I FORWARD -j NFQUEUE
@@ -595,7 +595,7 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       DesiredCapacity: "0"
-      HealthCheckGracePeriod: 600
+      HealthCheckGracePeriod: 900
       HealthCheckType: ELB
       LaunchConfigurationName: !Ref SuricataLaunchConfiguration
       MaxSize: "10"
