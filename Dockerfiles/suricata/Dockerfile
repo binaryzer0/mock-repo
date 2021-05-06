@@ -3,7 +3,7 @@ FROM public.ecr.aws/amazonlinux/amazonlinux:2.0.20210326.0-amd64
 RUN amazon-linux-extras install -y epel && \
   yum -y install gcc libpcap-devel pcre-devel libyaml-devel file-devel \
   zlib-devel jansson-devel nss-devel libcap-ng-devel libnet-devel tar make \
-  libnetfilter_queue-devel lua-devel PyYAML libmaxminddb-devel rustc cargo cronie supervisor \
+  libnetfilter_queue-devel lua-devel PyYAML libmaxminddb-devel rustc cargo supervisor \
   lz4-devel gzip && \
   yum clean all && \
   rm -rf /var/cache/yum /var/lib/suricata/rules /etc/cron.*/*

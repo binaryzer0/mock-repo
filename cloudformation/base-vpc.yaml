@@ -471,6 +471,19 @@ Resources:
               - Name: SourceArtifact
             Namespace: RulesFetcherBuild
             RunOrder: 2
+          - Name: CopyToS3
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: S3
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceArtifact
+            Configuration:
+              BucketName: !Ref SuricataBucket
+              Extract: true
+              ObjectKey: deployment
+            RunOrder: 2
       - Name: DeployStage
         Actions:
           - Name: CreateChangeSet
@@ -500,19 +513,6 @@ Resources:
                   "SuricataImage": "#{SuricataBuild.image}",
                   "RulesFetcherImage": "#{RulesFetcherBuild.image}"
                 }
-            RunOrder: 3
-          - Name: DeployToS3
-            ActionTypeId:
-              Category: Deploy
-              Owner: AWS
-              Provider: S3
-              Version: '1'
-            InputArtifacts:
-              - Name: SourceArtifact
-            Configuration:
-              BucketName: !Ref SuricataBucket
-              Extract: true
-              ObjectKey: deployment
             RunOrder: 3
           - Name: ExecuteChangeSet
             ActionTypeId:
