@@ -9,7 +9,7 @@ This repository has deployment, installation and clean up instructions on how to
 The quickest way to deploy Suricata and the CI/CD pipeline needed to support a GitOps workflow is to run a quickstart Cloudformation template. The Quickstart template will setup a AWS Codepipeline using AWS CodeCommit, AWS CodeBuild and CloudFormation and various support resources such as SSM Parameters.
 The Quickstart template will copy this GitHub Repo into AWS CodeCommit which will be the Git repo you work against. 
 
-We provide two different QuickStarts:
+**A CloudFormation template will be used to deploy the solution:**
 
 The '/cloudformation/base-vpc.yaml' template creates a complete new environment with a VPC where Suricata will be deployed.' Should you wish to use an existing VPC you will need to ensure that it has three private subnets with a default route to a Nat Gateway. The Nat Gateway will of course need to be within a subnet that has the ability to reach the internet via an Internet Gateway.
 
