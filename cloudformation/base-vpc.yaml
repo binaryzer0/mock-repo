@@ -67,6 +67,9 @@ Mappings:
       Tag: Latest
 
 Resources:
+
+  # Pipeline #
+
   SuricataEcrRepo:
     Type: AWS::ECR::Repository
 
@@ -79,7 +82,6 @@ Resources:
       BucketName: !Sub ${AWS::StackName}-automationbucket 
       AccessControl: Private
   
-
   GitRepoToCodeCommitCustomResource:
     Type: Custom::CopyGitRepoToS3
     Properties:
@@ -416,7 +418,6 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: Dockerfiles/rulesFetcher/buildspec.yml
 
-
   CPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties: 
@@ -445,32 +446,8 @@ Resources:
             OutputArtifacts:
               - Name: SourceArtifact
             RunOrder: 1
-      - Name: BuildStage
+      - Name: DeployRuleBaseStage
         Actions:
-          - Name: BuildSuricataContainer
-            ActionTypeId:
-              Category: Build
-              Owner: AWS
-              Provider: CodeBuild
-              Version: '1'
-            Configuration:
-              ProjectName: !Ref SuricataBuildProject
-            InputArtifacts:
-              - Name: SourceArtifact
-            Namespace: SuricataBuild
-            RunOrder: 2
-          - Name: BuildRulesFetcherContainer
-            ActionTypeId:
-              Category: Build
-              Owner: AWS
-              Provider: CodeBuild
-              Version: '1'
-            Configuration:
-              ProjectName: !Ref RulesFetcherBuildProject
-            InputArtifacts:
-              - Name: SourceArtifact
-            Namespace: RulesFetcherBuild
-            RunOrder: 2
           - Name: CopyToS3
             ActionTypeId:
               Category: Deploy
@@ -484,7 +461,33 @@ Resources:
               Extract: true
               ObjectKey: deployment
             RunOrder: 2
-      - Name: DeployStage
+      - Name: BuildContainersStage
+        Actions:
+          - Name: BuildSuricataContainer
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: '1'
+            Configuration:
+              ProjectName: !Ref SuricataBuildProject
+            InputArtifacts:
+              - Name: SourceArtifact
+            Namespace: SuricataBuild
+            RunOrder: 3
+          - Name: BuildRulesFetcherContainer
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: '1'
+            Configuration:
+              ProjectName: !Ref RulesFetcherBuildProject
+            InputArtifacts:
+              - Name: SourceArtifact
+            Namespace: RulesFetcherBuild
+            RunOrder: 3
+      - Name: DeployApplicationStage
         Actions:
           - Name: CreateChangeSet
             ActionTypeId:
@@ -576,10 +579,8 @@ Resources:
           RoleArn: !GetAtt CPipelineCloudWatchEventRole.Arn
           Id: codepipeline-AppPipeline
 
+  # Network #
 
-###########
-# Network #
-###########
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -596,7 +597,7 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-# Public Subnets
+  # Public Subnets
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -651,7 +652,8 @@ Resources:
       RouteTableId: !Ref PublicSubnetRouteTable
       SubnetId: !Ref PublicSubnet3
 
-# NAT
+  # NAT
+
   NatGwPublicSubnet1:
     Type: AWS::EC2::NatGateway
     Properties:
@@ -685,7 +687,8 @@ Resources:
     Properties:
         Domain: vpc
 
-# Private Subnets
+  # Private Subnets
+
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
