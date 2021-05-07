@@ -10,5 +10,5 @@ do
 	else
 		echo "No new rules found. Exiting." 
 	fi
-	sleep 1
+	sleep 10
 done

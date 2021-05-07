@@ -41,7 +41,7 @@ do
     fi
 
 
-    aws s3 sync s3://$DynamicRulesS3Path /var/lib/suricata/rules/dynamic.rules
+    aws s3 cp s3://$DynamicRulesS3Path /var/lib/suricata/rules/dynamic.rules
     suricata-update -f --suricata-version 6.0.2 --url file:///dev/null
-    sleep 1
+    sleep 10
 done
