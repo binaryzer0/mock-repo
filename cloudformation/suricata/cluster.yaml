@@ -318,7 +318,7 @@ Resources:
           Essential: true
           DependsOn:
             - ContainerName: RulesFetcher
-              Condition: HEALTHY
+              Condition: START
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -343,12 +343,6 @@ Resources:
           Image: !Ref RulesFetcherImage
           MemoryReservation: 32
           Essential: true
-          HealthCheck:
-            Command: [ "CMD-SHELL", "crontab -l || exit 1" ]
-            Interval: 30
-            Retries: 5
-            Timeout: 30
-            StartPeriod: 30
           LogConfiguration:
             LogDriver: awslogs
             Options:

@@ -7,8 +7,6 @@ do
 		echo "New rules found. Updating rules"
 		suricatasc -c reload-rules
 		echo "$fetched_rules_md5sum" > /tmp/rules.md5
-	else
-		echo "No new rules found. Exiting." 
 	fi
 	sleep 10
 done

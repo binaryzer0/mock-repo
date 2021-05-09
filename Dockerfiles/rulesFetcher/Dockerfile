@@ -16,4 +16,4 @@ RUN groupadd --gid 1000 suricata && \
 
 VOLUME /var/lib/suricata/rules
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh 2>&1 | grep -v 'Warning'"]
