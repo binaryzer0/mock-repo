@@ -48,26 +48,7 @@ Parameters:
     Description: CIDR block for the Private Subnet 3 located in AZ 3
     Type: String
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
-
-Mappings: 
-  Automation:
-    CloudWatchEvents:
-      RolePolicyName: ipsautomation-cwe-pipeline-execution
-    CloudFormation:
-      RolePolicyName: ipsautomation-cfn-pipeline-execution
-    CodeBuild:
-      RolePolicyName: ipsautomation-cb-pipeline-execution
-    Pipeline:
-      Name: ipsautomation-pipeline
-      SourceTemplate: deployment/suricata.yaml
-      SourceRepoName: ipsautomation-pipeline-repo
-      RolePolicyName: ipsautomation-cpp-pipeline-execution
-    Ecr:
-      RepoName: ipsautomation-suricata
-      Tag: Latest
-
 Resources:
-
   # Pipeline #
 
   SuricataEcrRepo:
@@ -79,7 +60,7 @@ Resources:
   SuricataBucket:
     Type: AWS::S3::Bucket
     Properties: 
-      BucketName: !Sub ${AWS::StackName}-automationbucket 
+      BucketName: !Sub ${AWS::StackName}-bucket-${AWS::Region}-${AWS::AccountId}
       AccessControl: Private
   
   GitRepoToCodeCommitCustomResource:
@@ -174,7 +155,7 @@ Resources:
           Bucket: !Ref SuricataBucket
           Key: cloneFromGithub/ipsautomation.zip
       RepositoryDescription: Repository for holding IPS solution Automation Code
-      RepositoryName: !FindInMap [ Automation, Pipeline, SourceRepoName ]
+      RepositoryName: !Sub ${AWS::StackName}-repository
 
   CPipelineCloudFormationRole:
     Type: AWS::IAM::Role
@@ -189,8 +170,7 @@ Resources:
                 - cloudformation.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        -
-          PolicyName: !FindInMap [ Automation, CloudFormation, RolePolicyName ]
+        - PolicyName: cfnRolePolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -204,38 +184,33 @@ Resources:
     Properties:
       AssumeRolePolicyDocument:
         Statement:
-          - 
-            Effect: Allow
+          - Effect: Allow
             Principal: 
                 Service: 
                   - codepipeline.amazonaws.com
             Action:
               - 'sts:AssumeRole'
       Policies:
-        - 
-          PolicyName: !FindInMap [ Automation, Pipeline, RolePolicyName ]
+        - PolicyName: CodePipelineRolePolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-                - 
-                  Effect: Allow
+                - Effect: Allow
                   Action:
                     - codecommit:CancelUploadArchive
                     - codecommit:GetBranch
                     - codecommit:GetCommit
                     - codecommit:GetUploadArchiveStatus
                     - codecommit:UploadArchive
-                  Resource: !GetAtt CCRepo.Arn
-                - 
-                  Effect: Allow
+                  Resource: !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CCRepo.Name}
+                - Effect: Allow
                   Action:
                     - codebuild:StartBuild
                     - codebuild:BatchGetBuilds
                   Resource: 
                     - !GetAtt SuricataBuildProject.Arn
                     - !GetAtt RulesFetcherBuildProject.Arn
-                -
-                  Effect: Allow
+                - Effect: Allow
                   Action:
                     - cloudformation:CreateStack
                     - cloudformation:DeleteStack
@@ -248,19 +223,17 @@ Resources:
                     - cloudformation:SetStackPolicy
                     - cloudformation:ValidateTemplate
                   Resource: "*"
-                - 
-                  Effect: Allow
+                - Effect: Allow
                   Action:
                     - iam:PassRole
                   Resource:
                     - !GetAtt CPipelineCloudFormationRole.Arn
-                - 
-                  Effect: Allow
+                - Effect: Allow
                   Action:
                     - s3:*
                   Resource: 
-                    - !GetAtt SuricataBucket.Arn
-                    - !Join ["", [!GetAtt SuricataBucket.Arn,"/*"]]
+                    - !Sub ${SuricataBucket.Arn}
+                    - !Sub ${SuricataBucket.Arn}/*
 
   CPipelineCodeBuildRole:
     Type: AWS::IAM::Role
@@ -274,7 +247,7 @@ Resources:
                 - codebuild.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: SuricataCodebuildRolePolicy
+        - PolicyName: CodebuildRolePolicy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -425,10 +398,9 @@ Resources:
         Type: S3 
         Location: !Ref SuricataBucket
       DisableInboundStageTransitions:
-        -  
-          Reason: "Disabling to permit code changes to internal stack before initial deployment"
+        - Reason: "Disabling to permit code changes to internal stack before initial deployment"
           StageName: BuildStage
-      Name: !FindInMap [ Automation, Pipeline, Name ]
+      Name: !Sub ${AWS::StackName}-pipeline
       RoleArn: !GetAtt CPipelineServiceRole.Arn
       Stages:
       - Name: SourceStage
@@ -440,28 +412,13 @@ Resources:
               Provider: CodeCommit
               Version: '1'
             Configuration:
-              RepositoryName: !FindInMap [ Automation, Pipeline, SourceRepoName ]
+              RepositoryName: !GetAtt CCRepo.Name
               BranchName: main
               PollForSourceChanges: 'false'
             OutputArtifacts:
               - Name: SourceArtifact
             RunOrder: 1
-      - Name: DeployRuleBaseStage
-        Actions:
-          - Name: CopyToS3
-            ActionTypeId:
-              Category: Deploy
-              Owner: AWS
-              Provider: S3
-              Version: '1'
-            InputArtifacts:
-              - Name: SourceArtifact
-            Configuration:
-              BucketName: !Ref SuricataBucket
-              Extract: true
-              ObjectKey: deployment
-            RunOrder: 2
-      - Name: BuildContainersStage
+      - Name: BuildStage
         Actions:
           - Name: BuildSuricataContainer
             ActionTypeId:
@@ -474,7 +431,7 @@ Resources:
             InputArtifacts:
               - Name: SourceArtifact
             Namespace: SuricataBuild
-            RunOrder: 3
+            RunOrder: 1
           - Name: BuildRulesFetcherContainer
             ActionTypeId:
               Category: Build
@@ -486,7 +443,20 @@ Resources:
             InputArtifacts:
               - Name: SourceArtifact
             Namespace: RulesFetcherBuild
-            RunOrder: 3
+            RunOrder: 1
+          - Name: CopyToS3
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: S3
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceArtifact
+            Configuration:
+              BucketName: !Ref SuricataBucket
+              Extract: true
+              ObjectKey: deployment
+            RunOrder: 1
       - Name: DeployApplicationStage
         Actions:
           - Name: CreateChangeSet
@@ -516,7 +486,7 @@ Resources:
                   "SuricataImage": "#{SuricataBuild.image}",
                   "RulesFetcherImage": "#{RulesFetcherBuild.image}"
                 }
-            RunOrder: 3
+            RunOrder: 1
           - Name: ExecuteChangeSet
             ActionTypeId:
               Category: Deploy
@@ -528,7 +498,7 @@ Resources:
               ChangeSetName: !Sub ${AWS::StackName}-suricata-cluster-cset
               RoleArn: !GetAtt CPipelineCloudFormationRole.Arn
               StackName: !Sub ${AWS::StackName}-suricata-cluster
-            RunOrder: 4
+            RunOrder: 2
 
   CPipelineCloudWatchEventRole:
       Type: AWS::IAM::Role
@@ -544,15 +514,14 @@ Resources:
               Action: sts:AssumeRole
         Path: /
         Policies:
-          -
-            PolicyName: !FindInMap [ Automation, CloudWatchEvents, RolePolicyName ]
+          - PolicyName: CWEvenetRolePolicy
             PolicyDocument:
               Version: 2012-10-17
               Statement:
                 -
                   Effect: Allow
                   Action: codepipeline:StartPipelineExecution
-                  Resource: !Join [ "", [ "arn:aws:codepipeline:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":", !Ref "CPipeline" ] ] 
+                  Resource: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${AWS::StackName}-pipeline
 
   CPipelineCloudWatchEventRule:
     Type: AWS::Events::Rule
@@ -563,7 +532,7 @@ Resources:
         detail-type:
           - 'CodeCommit Repository State Change'
         resources:
-          - !Join [ "", [ "arn:aws:codecommit:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":", !FindInMap [ Automation, Pipeline, SourceRepoName ] ] ]
+          - !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${AWS::StackName}-repository
         detail:
           event:
             - referenceCreated
@@ -573,9 +542,7 @@ Resources:
           referenceName:
             - main
       Targets:
-        -
-          Arn: 
-            !Join [ "", [ "arn:aws:codepipeline:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":", !Ref "CPipeline" ] ]
+        - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${AWS::StackName}-pipeline
           RoleArn: !GetAtt CPipelineCloudWatchEventRole.Arn
           Id: codepipeline-AppPipeline
 
