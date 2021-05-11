@@ -6,6 +6,10 @@ Parameters:
     Default: https://github.com/bizzelicious/mock-repo.git
     Type: String
 
+  VpcName:
+    Default: ips-service-vpc
+    Description: Logical name for the filtration and unspection VPC
+    Type: String
   VpcCidr:
     AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
     Default: 192.168.1.0/25
@@ -554,6 +558,9 @@ Resources:
       CidrBlock: !Ref VpcCidr
       EnableDnsSupport: true
       EnableDnsHostnames: true
+      Tags:
+        - Key: "Name"
+          Value:  !Ref VpcName
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
